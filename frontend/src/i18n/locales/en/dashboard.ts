@@ -496,6 +496,19 @@ export default {
 
   // Shared keys for channel monitor (admin + user views)
   monitorCommon: {
+    candy: {
+      title: 'Intelligence checks',
+      setting: 'Enable candy intelligence checks',
+      settingHint: 'Every 10 minutes, send this monitor’s upstream URL, API key and primary model to manxue.ai. Checks use the Responses API and incur model usage. Disabled by default.',
+      documentation: 'Candy API documentation',
+      running: 'Checking',
+      interval: 'Every 10 minutes',
+      passRate: '{rate}% passed',
+      unjudged: 'No conclusive results',
+      noRecord: 'No record',
+      disabledHint: 'Enable in monitor settings',
+      status: { disabled: 'Disabled', pending: 'Pending', passed: 'Normal', incorrect: 'Possible degradation', error: 'Check failed' }
+    },
     status: {
       operational: 'Operational',
       degraded: 'Degraded',

@@ -5,7 +5,7 @@
       <span class="w-10 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500">
         {{ t('modelPlaza.filters.platformLabel') }}
       </span>
-      <div class="flex flex-wrap items-center gap-2">
+      <div v-liquid-pill class="flex flex-wrap items-center gap-2">
         <button
           v-for="p in ['all', ...platforms]"
           :key="`platform-${p}`"
@@ -14,6 +14,7 @@
           :class="p === 'all' ? chipClass(platform === 'all') : platform === p ? 'chip-tinted-active' : 'chip-tinted'"
           :style="p === 'all' ? undefined : { '--chip-accent': platformAccentColor(p) }"
           :disabled="p !== 'all' && !platformEnabled(p)"
+          :aria-pressed="platform === p"
           @click="$emit('update:platform', p)"
         >
           <PlatformIcon v-if="p !== 'all'" :platform="p as GroupPlatform" size="xs" />
@@ -27,11 +28,12 @@
       <span class="w-10 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500">
         {{ t('modelPlaza.filters.groupLabel') }}
       </span>
-      <div class="flex flex-wrap items-center gap-2">
+      <div v-liquid-pill class="flex flex-wrap items-center gap-2">
         <button
           type="button"
           class="rounded-lg px-3 py-1.5 text-sm font-medium transition"
           :class="chipClass(groupId === 'all')"
+          :aria-pressed="groupId === 'all'"
           @click="$emit('update:groupId', 'all')"
         >
           {{ t('modelPlaza.filters.all') }}
@@ -44,6 +46,7 @@
           :class="groupId === g.id ? 'chip-tinted-active' : 'chip-tinted'"
           :style="{ '--chip-accent': platformAccentColor(g.platform) }"
           :disabled="!groupEnabled(g)"
+          :aria-pressed="groupId === g.id"
           @click="$emit('update:groupId', g.id)"
         >
           {{ g.name }}
@@ -56,11 +59,12 @@
       <span class="w-10 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500">
         {{ t('modelPlaza.filters.rateLabel') }}
       </span>
-      <div class="flex flex-wrap items-center gap-2">
+      <div v-liquid-pill class="flex flex-wrap items-center gap-2">
         <button
           type="button"
           class="rounded-lg px-3 py-1.5 text-sm font-medium transition"
           :class="chipClass(rate === 'all')"
+          :aria-pressed="rate === 'all'"
           @click="$emit('update:rate', 'all')"
         >
           {{ t('modelPlaza.filters.all') }}
@@ -72,6 +76,7 @@
           class="rounded-lg px-3 py-1.5 font-mono text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
           :class="chipClass(rate === r)"
           :disabled="!rateEnabled(r)"
+          :aria-pressed="rate === r"
           @click="$emit('update:rate', r)"
         >
           {{ r }}x
@@ -111,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'

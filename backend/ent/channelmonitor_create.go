@@ -159,6 +159,20 @@ func (_c *ChannelMonitorCreate) SetNillableEnabled(v *bool) *ChannelMonitorCreat
 	return _c
 }
 
+// SetCandyEnabled sets the "candy_enabled" field.
+func (_c *ChannelMonitorCreate) SetCandyEnabled(v bool) *ChannelMonitorCreate {
+	_c.mutation.SetCandyEnabled(v)
+	return _c
+}
+
+// SetNillableCandyEnabled sets the "candy_enabled" field if the given value is not nil.
+func (_c *ChannelMonitorCreate) SetNillableCandyEnabled(v *bool) *ChannelMonitorCreate {
+	if v != nil {
+		_c.SetCandyEnabled(*v)
+	}
+	return _c
+}
+
 // SetIntervalSeconds sets the "interval_seconds" field.
 func (_c *ChannelMonitorCreate) SetIntervalSeconds(v int) *ChannelMonitorCreate {
 	_c.mutation.SetIntervalSeconds(v)
@@ -351,6 +365,10 @@ func (_c *ChannelMonitorCreate) defaults() {
 		v := channelmonitor.DefaultEnabled
 		_c.mutation.SetEnabled(v)
 	}
+	if _, ok := _c.mutation.CandyEnabled(); !ok {
+		v := channelmonitor.DefaultCandyEnabled
+		_c.mutation.SetCandyEnabled(v)
+	}
 	if _, ok := _c.mutation.JitterSeconds(); !ok {
 		v := channelmonitor.DefaultJitterSeconds
 		_c.mutation.SetJitterSeconds(v)
@@ -439,6 +457,9 @@ func (_c *ChannelMonitorCreate) check() error {
 	}
 	if _, ok := _c.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`ent: missing required field "ChannelMonitor.enabled"`)}
+	}
+	if _, ok := _c.mutation.CandyEnabled(); !ok {
+		return &ValidationError{Name: "candy_enabled", err: errors.New(`ent: missing required field "ChannelMonitor.candy_enabled"`)}
 	}
 	if _, ok := _c.mutation.IntervalSeconds(); !ok {
 		return &ValidationError{Name: "interval_seconds", err: errors.New(`ent: missing required field "ChannelMonitor.interval_seconds"`)}
@@ -548,6 +569,10 @@ func (_c *ChannelMonitorCreate) createSpec() (*ChannelMonitor, *sqlgraph.CreateS
 	if value, ok := _c.mutation.Enabled(); ok {
 		_spec.SetField(channelmonitor.FieldEnabled, field.TypeBool, value)
 		_node.Enabled = value
+	}
+	if value, ok := _c.mutation.CandyEnabled(); ok {
+		_spec.SetField(channelmonitor.FieldCandyEnabled, field.TypeBool, value)
+		_node.CandyEnabled = value
 	}
 	if value, ok := _c.mutation.IntervalSeconds(); ok {
 		_spec.SetField(channelmonitor.FieldIntervalSeconds, field.TypeInt, value)
@@ -837,6 +862,18 @@ func (u *ChannelMonitorUpsert) SetEnabled(v bool) *ChannelMonitorUpsert {
 // UpdateEnabled sets the "enabled" field to the value that was provided on create.
 func (u *ChannelMonitorUpsert) UpdateEnabled() *ChannelMonitorUpsert {
 	u.SetExcluded(channelmonitor.FieldEnabled)
+	return u
+}
+
+// SetCandyEnabled sets the "candy_enabled" field.
+func (u *ChannelMonitorUpsert) SetCandyEnabled(v bool) *ChannelMonitorUpsert {
+	u.Set(channelmonitor.FieldCandyEnabled, v)
+	return u
+}
+
+// UpdateCandyEnabled sets the "candy_enabled" field to the value that was provided on create.
+func (u *ChannelMonitorUpsert) UpdateCandyEnabled() *ChannelMonitorUpsert {
+	u.SetExcluded(channelmonitor.FieldCandyEnabled)
 	return u
 }
 
@@ -1203,6 +1240,20 @@ func (u *ChannelMonitorUpsertOne) SetEnabled(v bool) *ChannelMonitorUpsertOne {
 func (u *ChannelMonitorUpsertOne) UpdateEnabled() *ChannelMonitorUpsertOne {
 	return u.Update(func(s *ChannelMonitorUpsert) {
 		s.UpdateEnabled()
+	})
+}
+
+// SetCandyEnabled sets the "candy_enabled" field.
+func (u *ChannelMonitorUpsertOne) SetCandyEnabled(v bool) *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetCandyEnabled(v)
+	})
+}
+
+// UpdateCandyEnabled sets the "candy_enabled" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertOne) UpdateCandyEnabled() *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateCandyEnabled()
 	})
 }
 
@@ -1757,6 +1808,20 @@ func (u *ChannelMonitorUpsertBulk) SetEnabled(v bool) *ChannelMonitorUpsertBulk 
 func (u *ChannelMonitorUpsertBulk) UpdateEnabled() *ChannelMonitorUpsertBulk {
 	return u.Update(func(s *ChannelMonitorUpsert) {
 		s.UpdateEnabled()
+	})
+}
+
+// SetCandyEnabled sets the "candy_enabled" field.
+func (u *ChannelMonitorUpsertBulk) SetCandyEnabled(v bool) *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetCandyEnabled(v)
+	})
+}
+
+// UpdateCandyEnabled sets the "candy_enabled" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertBulk) UpdateCandyEnabled() *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateCandyEnabled()
 	})
 }
 

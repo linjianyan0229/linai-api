@@ -20,7 +20,7 @@
         <div class="mt-4 border-t border-gray-100 pt-4 dark:border-dark-700">
           <div
             class="tabs inline-flex w-full max-w-xl flex-wrap sm:w-auto"
-            role="tablist"
+            v-liquid-pill role="tablist"
             :aria-label="t('channelMonitorV2.admin.tabAria')"
           >
             <button
@@ -169,6 +169,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'

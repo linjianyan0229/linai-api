@@ -22,8 +22,8 @@
       </span>
     </button>
 
-    <Transition name="select-dropdown">
-      <div v-if="isOpen" class="select-dropdown">
+    <Transition name="liquid-menu">
+      <div v-if="isOpen" class="liquid-popover select-dropdown">
         <!-- Search and Batch Test Header -->
         <div class="select-header">
           <div class="select-search">

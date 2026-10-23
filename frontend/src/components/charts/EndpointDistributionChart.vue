@@ -6,6 +6,7 @@
       </h3>
       <div class="flex flex-wrap items-center justify-end gap-2">
         <div
+          v-liquid-pill
           v-if="showSourceToggle"
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
@@ -15,7 +16,8 @@
             :class="source === 'inbound'
               ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'inbound')"
+            :aria-pressed="source === 'inbound'"
+          @click="emit('update:source', 'inbound')"
           >
             {{ t('usage.inbound') }}
           </button>
@@ -25,7 +27,8 @@
             :class="source === 'upstream'
               ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'upstream')"
+            :aria-pressed="source === 'upstream'"
+          @click="emit('update:source', 'upstream')"
           >
             {{ t('usage.upstream') }}
           </button>
@@ -35,14 +38,16 @@
             :class="source === 'path'
               ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:source', 'path')"
+            :aria-pressed="source === 'path'"
+          @click="emit('update:source', 'path')"
           >
             {{ t('usage.path') }}
           </button>
         </div>
 
         <div
-          v-if="showMetricToggle"
+          v-liquid-pill
+        v-if="showMetricToggle"
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-700 dark:bg-dark-800"
         >
           <button
@@ -51,7 +56,8 @@
             :class="metric === 'tokens'
               ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'tokens')"
+            :aria-pressed="metric === 'tokens'"
+          @click="emit('update:metric', 'tokens')"
           >
             {{ t('admin.dashboard.metricTokens') }}
           </button>
@@ -61,7 +67,8 @@
             :class="metric === 'actual_cost'
               ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
-            @click="emit('update:metric', 'actual_cost')"
+            :aria-pressed="metric === 'actual_cost'"
+          @click="emit('update:metric', 'actual_cost')"
           >
             {{ t('admin.dashboard.metricActualCost') }}
           </button>
@@ -133,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'

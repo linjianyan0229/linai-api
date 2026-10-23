@@ -49,6 +49,7 @@ func (r *channelMonitorRepository) Create(ctx context.Context, m *service.Channe
 		SetExtraModels(emptySliceIfNil(m.ExtraModels)).
 		SetGroupName(m.GroupName).
 		SetEnabled(m.Enabled).
+		SetCandyEnabled(m.CandyEnabled).
 		SetIntervalSeconds(m.IntervalSeconds).
 		SetJitterSeconds(m.JitterSeconds).
 		SetCreatedBy(m.CreatedBy).
@@ -121,6 +122,7 @@ func (r *channelMonitorRepository) Update(ctx context.Context, m *service.Channe
 		SetExtraModels(emptySliceIfNil(m.ExtraModels)).
 		SetGroupName(m.GroupName).
 		SetEnabled(m.Enabled).
+		SetCandyEnabled(m.CandyEnabled).
 		SetIntervalSeconds(m.IntervalSeconds).
 		SetJitterSeconds(m.JitterSeconds).
 		SetExtraHeaders(channelMonitorHeadersForPersistence(m)).
@@ -222,10 +224,18 @@ func (r *channelMonitorRepository) ListEnabled(ctx context.Context) ([]*service.
 
 func (r *channelMonitorRepository) MarkChecked(ctx context.Context, id int64, checkedAt time.Time) error {
 	client := clientFromContext(ctx, r.client)
-	if err := client.ChannelMonitor.UpdateOneID(id).
-		SetLastCheckedAt(checkedAt).
-		Exec(ctx); err != nil {
+	// A heartbeat changes runtime state, not the configuration revision used by
+	// candy checks. Ent's UpdateDefault would otherwise invalidate every result.
+	result, err := client.ExecContext(ctx, `UPDATE channel_monitors SET last_checked_at = $2 WHERE id = $1`, id, checkedAt)
+	if err != nil {
 		return translatePersistenceError(err, service.ErrChannelMonitorNotFound, nil)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return service.ErrChannelMonitorNotFound
 	}
 	return nil
 }
@@ -780,6 +790,7 @@ func entToServiceMonitor(row *dbent.ChannelMonitor) *service.ChannelMonitor {
 		ExtraModels:          extras,
 		GroupName:            row.GroupName,
 		Enabled:              row.Enabled,
+		CandyEnabled:         row.CandyEnabled,
 		IntervalSeconds:      row.IntervalSeconds,
 		JitterSeconds:        row.JitterSeconds,
 		LastCheckedAt:        row.LastCheckedAt,

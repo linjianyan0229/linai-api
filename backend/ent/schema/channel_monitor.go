@@ -77,6 +77,9 @@ func (ChannelMonitor) Fields() []ent.Field {
 			MaxLen(100),
 		field.Bool("enabled").
 			Default(true),
+		field.Bool("candy_enabled").
+			Default(false).
+			Comment("Opt-in OpenAI candy benchmark via manxue.ai every ten minutes"),
 		field.Int("interval_seconds").
 			Range(15, 3600),
 		field.Int("jitter_seconds").

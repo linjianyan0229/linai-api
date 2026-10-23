@@ -81,6 +81,7 @@ type ChannelMonitorService struct {
 	// quotaFetcher 由 wire 通过 SetQuotaFetcher 注入（accountUsage/CN 服务在本服务
 	// 之后构造，构造参数注入会破坏既有依赖顺序）。nil 时 fail-closed：
 	// 配额模式的检测产出「未配置」错误快照，Create/Update 关联账号直接报错。
+	candy        *ChannelMonitorCandyService
 	quotaFetcher *ChannelMonitorQuotaFetcher
 }
 
@@ -159,6 +160,9 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 		return nil, err
 	}
 	checkMode := defaultCheckMode(p.CheckMode)
+	if err := validateCandyMonitor(&ChannelMonitor{Provider: p.Provider, CheckMode: checkMode, CandyEnabled: p.CandyEnabled}); err != nil {
+		return nil, err
+	}
 	encrypted, err := s.encryptor.Encrypt(p.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt api key: %w", err)
@@ -173,6 +177,7 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 		ExtraModels:      normalizeModels(p.ExtraModels),
 		GroupName:        strings.TrimSpace(p.GroupName),
 		Enabled:          p.Enabled,
+		CandyEnabled:     p.CandyEnabled,
 		IntervalSeconds:  p.IntervalSeconds,
 		JitterSeconds:    p.JitterSeconds,
 		CreatedBy:        p.CreatedBy,
@@ -240,6 +245,7 @@ func (s *ChannelMonitorService) Duplicate(
 		ExtraModels:          append([]string{}, source.ExtraModels...),
 		GroupName:            source.GroupName,
 		Enabled:              false,
+		CandyEnabled:         source.CandyEnabled,
 		IntervalSeconds:      source.IntervalSeconds,
 		JitterSeconds:        source.JitterSeconds,
 		CreatedBy:            createdBy,
@@ -436,6 +442,9 @@ func (s *ChannelMonitorService) Update(ctx context.Context, id int64, p ChannelM
 		return nil, err
 	}
 
+	if err := validateCandyMonitor(existing); err != nil {
+		return nil, err
+	}
 	newPlainAPIKey, apiKeyUpdated, err := s.applyAPIKeyUpdate(existing, p.APIKey)
 	if err != nil {
 		return nil, err
@@ -945,6 +954,9 @@ func applyMonitorUpdate(existing *ChannelMonitor, p ChannelMonitorUpdateParams) 
 	}
 	if p.Enabled != nil {
 		existing.Enabled = *p.Enabled
+	}
+	if p.CandyEnabled != nil {
+		existing.CandyEnabled = *p.CandyEnabled
 	}
 	if p.IntervalSeconds != nil {
 		if err := validateInterval(*p.IntervalSeconds); err != nil {

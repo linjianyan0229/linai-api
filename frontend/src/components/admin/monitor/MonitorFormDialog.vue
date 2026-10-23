@@ -34,7 +34,7 @@
 
       <div>
         <label class="input-label">{{ t('admin.channelMonitor.form.provider') }} <span class="text-red-500">*</span></label>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div v-liquid-pill class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <button
             v-for="opt in providerOptions"
             :key="opt.value"
@@ -138,6 +138,15 @@
         />
       </div>
 
+      <div v-if="candyAllowed" class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900">
+        <div class="flex items-center justify-between gap-3">
+          <label for="monitor-candy-enabled" class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ t('monitorCommon.candy.setting') }}</label>
+          <Toggle id="monitor-candy-enabled" v-model="form.candy_enabled" :aria-label="t('monitorCommon.candy.setting')" />
+        </div>
+        <p class="mt-2 text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('monitorCommon.candy.settingHint') }}</p>
+        <a href="https://manxue.ai/api" target="_blank" rel="noopener noreferrer" class="mt-1 inline-block text-xs text-primary-600 dark:text-primary-400">{{ t('monitorCommon.candy.documentation') }}</a>
+      </div>
+
       <div v-if="usesProbePart">
         <label class="input-label">{{ t('admin.channelMonitor.form.extraModels') }}</label>
         <ModelTagInput
@@ -233,6 +242,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -332,6 +342,7 @@ interface MonitorForm {
   interval_seconds: number
   jitter_seconds: number
   enabled: boolean
+  candy_enabled: boolean
   // 高级设置快照
   template_id: number | null
   extra_headers: Record<string, string>
@@ -353,6 +364,7 @@ const form = reactive<MonitorForm>({
   interval_seconds: systemDefaultInterval.value,
   jitter_seconds: 0,
   enabled: true,
+  candy_enabled: false,
   template_id: null,
   extra_headers: {},
   body_override_mode: 'off',
@@ -362,6 +374,8 @@ const form = reactive<MonitorForm>({
 // quota / quota_probe 需要关联账号；probe / quota_probe 需要探活字段。
 const usesQuotaMode = computed(() => form.check_mode !== CHECK_MODE_PROBE)
 const usesProbePart = computed(() => form.check_mode !== CHECK_MODE_QUOTA)
+const candyAllowed = computed(() => form.provider === PROVIDER_OPENAI && usesProbePart.value)
+watch(candyAllowed, allowed => { if (!allowed) form.candy_enabled = false }, { flush: 'sync' })
 
 // jitter 上限与后端校验一致：interval - jitter 不得低于最小检测间隔 15 秒。
 const maxJitterSeconds = computed<number>(() => Math.max(0, (form.interval_seconds || 0) - 15))
@@ -740,6 +754,7 @@ function resetForm() {
   form.interval_seconds = systemDefaultInterval.value
   form.jitter_seconds = 0
   form.enabled = true
+  form.candy_enabled = false
   form.template_id = null
   form.extra_headers = {}
   form.body_override_mode = 'off'
@@ -762,6 +777,7 @@ function loadFromMonitor(m: ChannelMonitor) {
   form.interval_seconds = m.interval_seconds || systemDefaultInterval.value
   form.jitter_seconds = m.jitter_seconds || 0
   form.enabled = m.enabled
+  form.candy_enabled = candyAllowed.value && !!m.candy_enabled
   form.template_id = m.template_id ?? null
   form.extra_headers = { ...(m.extra_headers || {}) }
   form.body_override_mode = m.body_override_mode || 'off'
@@ -828,6 +844,7 @@ function buildPayload(): CreateParams {
     extra_models: usesProbePart.value ? form.extra_models : [],
     group_name: form.group_name.trim(),
     enabled: form.enabled,
+    candy_enabled: candyAllowed.value && form.candy_enabled,
     interval_seconds: form.interval_seconds,
     jitter_seconds: form.jitter_seconds || 0,
     template_id: usesProbePart.value ? form.template_id : null,

@@ -50,12 +50,21 @@ function mountCard(item: UserMonitorView) {
         MonitorMetricPair: true,
         MonitorAvailabilityRow: true,
         MonitorTimeline: true,
+        MonitorIntelligenceBar: true,
       },
     },
   })
 }
 
 describe('MonitorCard quota snapshot visibility', () => {
+  it('shows intelligence history only for an opted-in OpenAI monitor', () => {
+    const candy = { enabled: true, model: 'configured-model', status: 'pending' as const, running: false, interval_seconds: 600, history: [] }
+    const openai = mountCard(makeItem({ provider: 'openai', candy }))
+    expect(openai.find('monitor-intelligence-bar-stub').exists()).toBe(true)
+    const other = mountCard(makeItem({ provider: 'anthropic', candy }))
+    expect(other.find('monitor-intelligence-bar-stub').exists()).toBe(false)
+    expect(mountCard(makeItem({ provider: 'openai' })).find('monitor-intelligence-bar-stub').exists()).toBe(false)
+  })
   it('hides the quota block when the system switch is off even if data exists', () => {
     isQuotaVisible.mockReturnValue(false)
     const wrapper = mountCard(

@@ -501,6 +501,19 @@ export default {
 
   // Shared keys for channel monitor (admin + user views)
   monitorCommon: {
+    candy: {
+      title: '降智监控',
+      setting: '启用糖果降智检测',
+      settingHint: '每 10 分钟将此监控的上游地址、密钥和主模型提交给 manxue.ai，通过 Responses API 检测并产生模型用量。默认关闭。',
+      documentation: '糖果接口说明',
+      running: '检测中',
+      interval: '每 10 分钟检测',
+      passRate: '通过率 {rate}%',
+      unjudged: '暂无有效结果',
+      noRecord: '暂无记录',
+      disabledHint: '在监控设置中开启',
+      status: { disabled: '未启用', pending: '待检测', passed: '正常', incorrect: '疑似降智', error: '检测失败' }
+    },
     status: {
       operational: '正常',
       degraded: '降级',

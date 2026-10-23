@@ -170,6 +170,30 @@ describe('MonitorFormDialog linked account selector', () => {
     monitorUpdate.mockReset().mockResolvedValue({})
   })
 
+  it('persists the OpenAI candy opt-in with the configured primary model', async () => {
+    const wrapper = mountDialog(makeMonitor({ candy_enabled: true }))
+    await flushPromises()
+    expect(wrapper.getComponent('#monitor-candy-enabled').props('modelValue')).toBe(true)
+    expect(wrapper.find('a[href="https://manxue.ai/api"]').exists()).toBe(true)
+    await wrapper.get('#channel-monitor-form').trigger('submit')
+    await flushPromises()
+    expect(monitorUpdate).toHaveBeenCalledWith(42, expect.objectContaining({
+      candy_enabled: true, primary_model: 'gpt-4o-mini'
+    }))
+  })
+
+  it('clears the candy opt-in when switching to another provider', async () => {
+    const wrapper = mountDialog(makeMonitor({ candy_enabled: true }))
+    await flushPromises()
+    await wrapper.get('[data-testid="monitor-provider-anthropic"]').trigger('click')
+    expect(wrapper.find('#monitor-candy-enabled').exists()).toBe(false)
+    await wrapper.get('#channel-monitor-form').trigger('submit')
+    await flushPromises()
+    expect(monitorUpdate).toHaveBeenCalledWith(42, expect.objectContaining({
+      provider: 'anthropic', candy_enabled: false
+    }))
+  })
+
   it('loads the first page of provider accounts when quota mode is enabled', async () => {
     accountsList.mockResolvedValue({ items: [{ id: 1, name: 'a', platform: 'anthropic' }] })
     const wrapper = mountDialog()

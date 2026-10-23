@@ -49,9 +49,11 @@ type ChannelMonitorRunner struct {
 	svc            monitorRunnerSvc
 	settingService *SettingService
 
-	pool         pond.Pool
-	parentCtx    context.Context
-	parentCancel context.CancelFunc
+	pool          pond.Pool
+	candyPool     pond.Pool
+	candyInFlight sync.Map
+	parentCtx     context.Context
+	parentCancel  context.CancelFunc
 
 	mu      sync.Mutex
 	tasks   map[int64]*scheduledMonitor
@@ -67,11 +69,12 @@ type ChannelMonitorRunner struct {
 
 // scheduledMonitor 单个监控的运行时上下文。
 type scheduledMonitor struct {
-	id       int64
-	name     string
-	interval time.Duration
-	jitter   time.Duration // 每轮 ± [0, jitter] 的均匀随机偏移；0 = 固定间隔
-	cancel   context.CancelFunc
+	id           int64
+	name         string
+	interval     time.Duration
+	jitter       time.Duration // 每轮 ± [0, jitter] 的均匀随机偏移；0 = 固定间隔
+	candyEnabled bool
+	cancel       context.CancelFunc
 }
 
 // nextDelay 计算下一次触发的等待时长：interval ± [0, jitter] 的均匀随机偏移。
@@ -105,6 +108,7 @@ func newChannelMonitorRunner(svc monitorRunnerSvc, settingService *SettingServic
 		svc:            svc,
 		settingService: settingService,
 		pool:           pond.NewPool(monitorWorkerConcurrency),
+		candyPool:      pond.NewPool(2, pond.WithQueueSize(256)),
 		parentCtx:      ctx,
 		parentCancel:   cancel,
 		tasks:          make(map[int64]*scheduledMonitor),
@@ -184,11 +188,12 @@ func (r *ChannelMonitorRunner) Schedule(m *ChannelMonitor) {
 	}
 	ctx, cancel := context.WithCancel(r.parentCtx)
 	task := &scheduledMonitor{
-		id:       m.ID,
-		name:     m.Name,
-		interval: interval,
-		jitter:   jitter,
-		cancel:   cancel,
+		id:           m.ID,
+		name:         m.Name,
+		interval:     interval,
+		jitter:       jitter,
+		candyEnabled: m.CandyEnabled && candyEligible(m),
+		cancel:       cancel,
 	}
 	r.tasks[m.ID] = task
 	r.wg.Add(1)
@@ -231,6 +236,7 @@ func (r *ChannelMonitorRunner) Stop() {
 
 	r.wg.Wait()
 	r.pool.StopAndWait()
+	r.candyPool.StopAndWait()
 }
 
 // runScheduled 单个监控的循环：立即触发首次（满足"新建/启用即跑"），
@@ -240,6 +246,14 @@ func (r *ChannelMonitorRunner) runScheduled(ctx context.Context, task *scheduled
 	defer r.wg.Done()
 
 	r.fire(ctx, task)
+	var candyTicks <-chan time.Time
+	var candyTimer *time.Timer
+	candyDone := make(chan time.Time, 1)
+	if task.candyEnabled {
+		candyTimer = time.NewTimer(0)
+		defer candyTimer.Stop()
+		candyTicks = candyTimer.C
+	}
 
 	timer := time.NewTimer(task.nextDelay())
 	defer timer.Stop()
@@ -247,11 +261,64 @@ func (r *ChannelMonitorRunner) runScheduled(ctx context.Context, task *scheduled
 		select {
 		case <-ctx.Done():
 			return
+		case <-candyTicks:
+			if !r.fireCandy(ctx, task, candyDone) {
+				candyTimer.Reset(5 * time.Second)
+			}
+		case next := <-candyDone:
+			// Anchor the next run to the database claim, not a ticker created
+			// before a queued worker started. Otherwise a tick a few milliseconds
+			// early would fail the ten-minute gate and skip a whole interval.
+			delay := time.Until(next)
+			if next.IsZero() {
+				delay = MonitorCandyInterval
+			}
+			if delay < time.Second {
+				delay = time.Second
+			}
+			candyTimer.Reset(delay)
 		case <-timer.C:
 			r.fire(ctx, task)
 			timer.Reset(task.nextDelay())
 		}
 	}
+}
+
+func (r *ChannelMonitorRunner) fireCandy(ctx context.Context, task *scheduledMonitor, done chan<- time.Time) bool {
+	checker, ok := r.svc.(interface {
+		RunCandyCheck(context.Context, int64) (time.Time, error)
+	})
+	if !ok || ctx.Err() != nil {
+		return false
+	}
+	if r.settingService != nil && !r.settingService.GetChannelMonitorRuntime(ctx).ActiveProbesAllowed() {
+		return false
+	}
+	if _, loaded := r.candyInFlight.LoadOrStore(task.id, struct{}{}); loaded {
+		return false
+	}
+	if _, accepted := r.candyPool.TrySubmit(func() {
+		defer r.candyInFlight.Delete(task.id)
+		var next time.Time
+		defer func() {
+			if recover() != nil {
+				slog.Error("channel_monitor: candy worker panic", "monitor_id", task.id)
+			}
+			select {
+			case done <- next:
+			case <-ctx.Done():
+			}
+		}()
+		var err error
+		next, err = checker.RunCandyCheck(ctx, task.id)
+		if err != nil {
+			slog.Warn("channel_monitor: candy check failed", "monitor_id", task.id, "error", err)
+		}
+	}); !accepted {
+		r.candyInFlight.Delete(task.id)
+		return false
+	}
+	return true
 }
 
 // fire 提交一次检测到 worker 池。功能开关关闭时跳过本次（不取消任务，

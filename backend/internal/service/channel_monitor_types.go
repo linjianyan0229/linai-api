@@ -42,6 +42,7 @@ type ChannelMonitor struct {
 	ExtraModels     []string
 	GroupName       string
 	Enabled         bool
+	CandyEnabled    bool
 	IntervalSeconds int
 	JitterSeconds   int // 每次调度 ± [0, jitter] 的随机偏移（秒），0 = 固定间隔
 	LastCheckedAt   *time.Time
@@ -91,6 +92,7 @@ type ChannelMonitorCreateParams struct {
 	ExtraModels      []string
 	GroupName        string
 	Enabled          bool
+	CandyEnabled     bool
 	IntervalSeconds  int
 	JitterSeconds    int
 	CreatedBy        int64
@@ -115,6 +117,7 @@ type ChannelMonitorUpdateParams struct {
 	ExtraModels     *[]string
 	GroupName       *string
 	Enabled         *bool
+	CandyEnabled    *bool
 	IntervalSeconds *int
 	JitterSeconds   *int
 	// 自定义快照字段：指针为 nil 表示不更新，非 nil 覆盖
@@ -160,6 +163,7 @@ type UserMonitorView struct {
 	// LatestQuota 主模型最近一次配额快照；channel_monitor_show_quota=false
 	// 时由 handler 服务端剥离。
 	LatestQuota *domain.MonitorQuotaSnapshot
+	Candy       *MonitorCandyView
 }
 
 // UserMonitorTimelinePoint 用户视图 timeline 单点数据（去除 message 以减小响应体）。

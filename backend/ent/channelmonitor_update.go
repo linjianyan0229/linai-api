@@ -209,6 +209,20 @@ func (_u *ChannelMonitorUpdate) SetNillableEnabled(v *bool) *ChannelMonitorUpdat
 	return _u
 }
 
+// SetCandyEnabled sets the "candy_enabled" field.
+func (_u *ChannelMonitorUpdate) SetCandyEnabled(v bool) *ChannelMonitorUpdate {
+	_u.mutation.SetCandyEnabled(v)
+	return _u
+}
+
+// SetNillableCandyEnabled sets the "candy_enabled" field if the given value is not nil.
+func (_u *ChannelMonitorUpdate) SetNillableCandyEnabled(v *bool) *ChannelMonitorUpdate {
+	if v != nil {
+		_u.SetCandyEnabled(*v)
+	}
+	return _u
+}
+
 // SetIntervalSeconds sets the "interval_seconds" field.
 func (_u *ChannelMonitorUpdate) SetIntervalSeconds(v int) *ChannelMonitorUpdate {
 	_u.mutation.ResetIntervalSeconds()
@@ -604,6 +618,9 @@ func (_u *ChannelMonitorUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(channelmonitor.FieldEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.CandyEnabled(); ok {
+		_spec.SetField(channelmonitor.FieldCandyEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.IntervalSeconds(); ok {
 		_spec.SetField(channelmonitor.FieldIntervalSeconds, field.TypeInt, value)
 	}
@@ -952,6 +969,20 @@ func (_u *ChannelMonitorUpdateOne) SetEnabled(v bool) *ChannelMonitorUpdateOne {
 func (_u *ChannelMonitorUpdateOne) SetNillableEnabled(v *bool) *ChannelMonitorUpdateOne {
 	if v != nil {
 		_u.SetEnabled(*v)
+	}
+	return _u
+}
+
+// SetCandyEnabled sets the "candy_enabled" field.
+func (_u *ChannelMonitorUpdateOne) SetCandyEnabled(v bool) *ChannelMonitorUpdateOne {
+	_u.mutation.SetCandyEnabled(v)
+	return _u
+}
+
+// SetNillableCandyEnabled sets the "candy_enabled" field if the given value is not nil.
+func (_u *ChannelMonitorUpdateOne) SetNillableCandyEnabled(v *bool) *ChannelMonitorUpdateOne {
+	if v != nil {
+		_u.SetCandyEnabled(*v)
 	}
 	return _u
 }
@@ -1380,6 +1411,9 @@ func (_u *ChannelMonitorUpdateOne) sqlSave(ctx context.Context) (_node *ChannelM
 	}
 	if value, ok := _u.mutation.Enabled(); ok {
 		_spec.SetField(channelmonitor.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.CandyEnabled(); ok {
+		_spec.SetField(channelmonitor.FieldCandyEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.IntervalSeconds(); ok {
 		_spec.SetField(channelmonitor.FieldIntervalSeconds, field.TypeInt, value)

@@ -66,6 +66,7 @@ type channelMonitorUserListItem struct {
 	// LatestQuota 主模型最近配额快照；channel_monitor_show_quota=false 时
 	// 由 userMonitorViewToItem 的调用方传入 false 剥离（服务端脱敏，非仅前端隐藏）。
 	LatestQuota *domain.MonitorQuotaSnapshot `json:"latest_quota,omitempty"`
+	Candy       *service.MonitorCandyView    `json:"candy,omitempty"`
 }
 
 // channelMonitorUserTimelinePoint 主模型最近一次检测的 timeline 点。
@@ -125,6 +126,7 @@ func userMonitorViewToItem(v *service.UserMonitorView, includeQuota bool) channe
 		Availability7d:       v.Availability7d,
 		ExtraModels:          extras,
 		Timeline:             timeline,
+		Candy:                v.Candy,
 	}
 	if includeQuota {
 		item.LatestQuota = v.LatestQuota

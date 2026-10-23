@@ -2,14 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import ProfileBalanceNotifyCard from '../ProfileBalanceNotifyCard.vue'
 
-const { sendNotifyEmailCode, verifyNotifyEmail, getProfile } = vi.hoisted(() => ({
+const { sendNotifyEmailCode, verifyNotifyEmail, getProfile, updateProfile, toggleNotifyEmail } = vi.hoisted(() => ({
   sendNotifyEmailCode: vi.fn(),
   verifyNotifyEmail: vi.fn(),
-  getProfile: vi.fn()
+  getProfile: vi.fn(),
+  updateProfile: vi.fn(),
+  toggleNotifyEmail: vi.fn()
 }))
 
 vi.mock('@/api', () => ({
-  userAPI: { sendNotifyEmailCode, verifyNotifyEmail, getProfile }
+  userAPI: { sendNotifyEmailCode, verifyNotifyEmail, getProfile, updateProfile, toggleNotifyEmail }
 }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: null }) }))
 vi.mock('@/stores/app', () => ({
@@ -37,11 +39,36 @@ describe('ProfileBalanceNotifyCard', () => {
     vi.resetAllMocks()
     sendNotifyEmailCode.mockResolvedValue({})
     getProfile.mockResolvedValue({ balance_notify_extra_emails: [] })
+    updateProfile.mockResolvedValue({ balance_notify_extra_emails: [] })
   })
 
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+  })
+
+  it('saves glass switch values once, applies email state from the server, and rolls back a rejected change', async () => {
+    const email = { email: 'saved@example.com', disabled: false, verified: true }
+    toggleNotifyEmail.mockResolvedValue({ balance_notify_extra_emails: [{ ...email, disabled: true }] })
+    const wrapper = mount(ProfileBalanceNotifyCard, {
+      props: { enabled: false, threshold: null, extraEmails: [email], systemDefaultThreshold: 5, userEmail: '' }
+    })
+    const enabled = wrapper.get('[role="switch"][aria-label="profile.balanceNotify.enabled"]')
+    await enabled.trigger('click')
+    await flushPromises()
+    expect(updateProfile).toHaveBeenCalledTimes(1)
+    expect(updateProfile).toHaveBeenCalledWith({ balance_notify_enabled: true })
+    expect(enabled.attributes('aria-checked')).toBe('true')
+    const saved = wrapper.get('[role="switch"][aria-label="saved@example.com"]')
+    await saved.trigger('click')
+    await flushPromises()
+    expect(toggleNotifyEmail).toHaveBeenCalledTimes(1)
+    expect(toggleNotifyEmail).toHaveBeenCalledWith('saved@example.com', true)
+    expect(saved.attributes('aria-checked')).toBe('false')
+    updateProfile.mockRejectedValueOnce(new Error('save failed'))
+    await enabled.trigger('click')
+    await flushPromises()
+    expect(enabled.attributes('aria-checked')).toBe('true')
   })
 
   it.each(['remove', 'unmount'])('does not start a pending email timer after %s', async (action) => {

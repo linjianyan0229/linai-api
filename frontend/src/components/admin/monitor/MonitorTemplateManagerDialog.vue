@@ -7,7 +7,7 @@
   >
     <!-- provider tabs -->
     <div class="mb-4 border-b border-gray-200 dark:border-dark-700">
-      <div role="tablist" class="flex flex-wrap gap-1">
+      <div v-liquid-pill role="tablist" class="flex flex-wrap gap-1">
         <button
           v-for="tab in providerTabs"
           :key="tab.value"
@@ -227,6 +227,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'

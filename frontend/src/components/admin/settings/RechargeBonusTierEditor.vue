@@ -32,7 +32,7 @@
         </span>
         <div
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-dark-600 dark:bg-dark-800"
-          role="group"
+          v-liquid-pill role="group"
         >
           <button
             v-for="option in modeOptions"
@@ -176,6 +176,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 

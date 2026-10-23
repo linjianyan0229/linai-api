@@ -3,6 +3,8 @@
     <button
       type="button"
       @click="toggle"
+      :aria-expanded="isOpen"
+      aria-haspopup="dialog"
       :class="['date-picker-trigger', isOpen && 'date-picker-trigger-open']"
     >
       <span class="date-picker-icon">
@@ -20,8 +22,15 @@
       </span>
     </button>
 
-    <Transition name="date-picker-dropdown">
-      <div v-if="isOpen" class="date-picker-dropdown">
+    <Transition :name="appearance === 'liquid-glass' ? 'liquid-menu' : 'date-picker-dropdown'">
+      <div
+        v-if="isOpen"
+        class="date-picker-dropdown"
+        role="dialog"
+        :aria-label="t('dates.selectDateRange')"
+        :class="{ 'date-picker-dropdown-liquid': appearance === 'liquid-glass' }"
+        :style="liquidDropdownStyle"
+      >
         <!-- Quick presets -->
         <div class="date-picker-presets">
           <button
@@ -76,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -89,6 +98,7 @@ interface DatePreset {
 interface Props {
   startDate: string
   endDate: string
+  appearance?: 'default' | 'liquid-glass'
 }
 
 interface Emits {
@@ -97,7 +107,7 @@ interface Emits {
   (e: 'change', range: { startDate: string; endDate: string; preset: string | null }): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { appearance: 'liquid-glass' })
 const emit = defineEmits<Emits>()
 
 const { t, locale } = useI18n()
@@ -107,6 +117,26 @@ const containerRef = ref<HTMLElement | null>(null)
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
 const activePreset = ref<string | null>('last24Hours')
+const liquidDropdownStyle = ref<CSSProperties>()
+
+function positionLiquidDropdown() {
+  if (props.appearance !== 'liquid-glass' || !isOpen.value || !containerRef.value) return
+  const bounds = containerRef.value.getBoundingClientRect()
+  const width = Math.min(320, window.innerWidth - 32)
+  const left = Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16))
+  const above = window.innerHeight - bounds.bottom < 300 && bounds.top > window.innerHeight - bounds.bottom
+  liquidDropdownStyle.value = {
+    position: 'fixed',
+    left: `${left}px`,
+    width: `${width}px`,
+    minWidth: '0',
+    maxHeight: `${Math.max(0, (above ? bounds.top : window.innerHeight - bounds.bottom) - 24)}px`,
+    overflowY: 'auto',
+    marginTop: '0',
+    ...(above ? { bottom: `${window.innerHeight - bounds.top + 8}px`, top: 'auto' } : { top: `${bounds.bottom + 8}px` }),
+    transformOrigin: `${Math.max(0, bounds.left + bounds.width / 2 - left)}px ${above ? 'bottom' : 'top'}`
+  }
+}
 
 const today = () => formatDateToString(new Date())
 
@@ -258,6 +288,7 @@ const onDateChange = () => {
 
 const toggle = () => {
   isOpen.value = !isOpen.value
+  positionLiquidDropdown()
 }
 
 const apply = () => {
@@ -311,6 +342,10 @@ watch(
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscape)
+  if (props.appearance === 'liquid-glass') {
+    window.addEventListener('scroll', positionLiquidDropdown, true)
+    window.addEventListener('resize', positionLiquidDropdown)
+  }
   // Initialize active preset detection
   onDateChange()
 })
@@ -318,6 +353,8 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('scroll', positionLiquidDropdown, true)
+  window.removeEventListener('resize', positionLiquidDropdown)
 })
 </script>
 

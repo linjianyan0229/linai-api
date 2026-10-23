@@ -21,6 +21,26 @@ export interface MonitorTimelinePoint {
   checked_at: string
 }
 
+export type CandyStatus = 'passed' | 'incorrect' | 'error'
+
+export interface CandyMonitorPoint {
+  status: CandyStatus
+  checked_at: string
+  duration_ms?: number | null
+}
+
+export interface CandyMonitorView {
+  enabled: boolean
+  model: string
+  status: CandyStatus | 'pending' | 'disabled'
+  running: boolean
+  interval_seconds: number
+  last_checked_at?: string | null
+  next_check_at?: string | null
+  pass_rate?: number | null
+  history: CandyMonitorPoint[]
+}
+
 export interface UserMonitorView {
   id: number
   name: string
@@ -38,6 +58,7 @@ export interface UserMonitorView {
    * 服务端才会下发（关闭时服务端已剥离，前端 flag 仅作纵深防御）。
    */
   latest_quota?: MonitorQuotaSnapshot | null
+  candy?: CandyMonitorView | null
 }
 
 export interface UserMonitorListResponse {

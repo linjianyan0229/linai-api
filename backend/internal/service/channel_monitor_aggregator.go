@@ -69,10 +69,13 @@ func (s *ChannelMonitorService) ListUserView(ctx context.Context) ([]*UserMonito
 	latestMap := s.batchLatest(ctx, ids)
 	timelineMap := s.batchTimeline(ctx, ids, primaryByID)
 
+	candyViews := s.candy.Views(ctx, monitors)
 	views := make([]*UserMonitorView, 0, len(monitors))
 	for _, m := range monitors {
 		primaryLatest := pickLatest(latestMap[m.ID], m.PrimaryModel)
-		views = append(views, buildUserViewFromSummary(m, summaries[m.ID], primaryLatest, timelineMap[m.ID]))
+		view := buildUserViewFromSummary(m, summaries[m.ID], primaryLatest, timelineMap[m.ID])
+		view.Candy = candyViews[m.ID]
+		views = append(views, view)
 	}
 	return views, nil
 }

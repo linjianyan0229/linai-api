@@ -1,0 +1,417 @@
+/* Content stays quiet. Liquid Glass belongs to navigation and interactive controls. */
+body.liquid-app.liquid-app,
+.select-dropdown-liquid,
+.date-picker-dropdown-liquid {
+  --liquid-surface: linear-gradient(135deg, rgb(255 255 255 / 42%), rgb(255 255 255 / 14%) 48%, rgb(255 255 255 / 22%));
+  --liquid-navigation-surface: linear-gradient(145deg, rgb(255 255 255 / 64%), rgb(255 255 255 / 34%));
+  --liquid-edge: rgb(255 255 255 / 70%);
+  --liquid-light: rgb(255 255 255 / 90%);
+  --liquid-shadow: 0 10px 28px -16px rgb(0 0 0 / 28%), 0 0 0 0.5px rgb(0 0 0 / 6%), inset 0 1px 0 rgb(255 255 255 / 92%), inset 0 -1px 0 rgb(0 0 0 / 5%);
+  --app-page: #f5f5f7;
+  --app-content: #fff;
+  --app-border: rgb(0 0 0 / 8%);
+  --app-muted: #eeeef0;
+  --app-control-text: #343437;
+}
+
+.dark body.liquid-app.liquid-app,
+.dark .select-dropdown-liquid,
+.dark .date-picker-dropdown-liquid {
+  --liquid-surface: linear-gradient(135deg, rgb(92 92 92 / 26%), rgb(36 36 36 / 18%) 48%, rgb(64 64 64 / 22%));
+  --liquid-navigation-surface: linear-gradient(145deg, rgb(38 38 38 / 74%), rgb(20 20 20 / 64%));
+  --liquid-edge: rgb(255 255 255 / 17%);
+  --liquid-light: rgb(255 255 255 / 25%);
+  --liquid-shadow: 0 12px 36px -16px rgb(0 0 0 / 70%), 0 0 0 0.5px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 23%), inset 0 -1px 0 rgb(255 255 255 / 5%);
+  --app-page: #000;
+  --app-content: #161616;
+  --app-border: rgb(255 255 255 / 9%);
+  --app-muted: #222;
+  --app-control-text: #f5f5f7;
+}
+
+.liquid-layout.liquid-layout {
+  position: relative;
+  isolation: isolate;
+  background: var(--app-page);
+}
+.dark .liquid-layout.liquid-layout { background: var(--app-page); }
+.liquid-glass-filter { position: absolute; pointer-events: none; overflow: hidden; }
+.liquid-ambient {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 8% 0, rgb(199 217 242 / 30%), transparent 40%), radial-gradient(ellipse at 95% 8%, rgb(202 228 222 / 20%), transparent 35%);
+}
+.dark .liquid-ambient { background: radial-gradient(ellipse at 10% 0, rgb(255 255 255 / 3%), transparent 45%); }
+
+/* A single floating navigation plane, with restrained selection states inside. */
+.liquid-layout .sidebar,
+.liquid-layout header.glass {
+  background: var(--liquid-surface);
+  border: 1px solid var(--liquid-edge);
+  box-shadow: var(--liquid-shadow);
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
+}
+.liquid-layout .sidebar {
+  background: var(--liquid-navigation-surface);
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  height: calc(100dvh - 24px);
+  width: 232px;
+  border-radius: 26px;
+}
+.dark .liquid-layout .sidebar { background: var(--liquid-navigation-surface); border-color: var(--liquid-edge); }
+.liquid-layout .sidebar-header { border-bottom: 0; padding-inline: 18px; }
+.liquid-layout .sidebar-nav { padding-inline: 10px; }
+.liquid-layout .sidebar-link { position: relative; isolation: isolate; border-radius: 14px; }
+body.liquid-app.liquid-app .liquid-layout .sidebar-link-active {
+  color: var(--liquid-pill-text);
+  background: transparent;
+  box-shadow: none;
+}
+.liquid-sidebar-collapsed .sidebar { left: 6px; width: 60px; border-radius: 22px; }
+.liquid-sidebar-collapsed .sidebar-nav { padding-inline: 6px; }
+.liquid-layout.liquid-sidebar-collapsed .sidebar-header { padding-inline: 10px; }
+.liquid-sidebar-collapsed .sidebar-link { justify-content: center; padding-inline: 0; }
+
+.liquid-layout header.glass {
+  top: 12px;
+  margin: 12px 24px 0;
+  border-radius: 24px;
+  transition: box-shadow 250ms ease, background-color 250ms ease;
+}
+.liquid-scrolled .liquid-layout header.glass { box-shadow: var(--liquid-shadow), 0 10px 28px -12px rgb(35 53 85 / 15%); }
+.liquid-scrolled .liquid-layout header.glass::after {
+  content: '';
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(var(--app-page), transparent);
+}
+.liquid-layout header :is(button, a) { position: relative; isolation: isolate; border-radius: 16px; }
+
+/* Data cards are standard content surfaces, without lensing or pointer lighting. */
+.liquid-dashboard { max-width: 1600px; margin-inline: auto; padding-bottom: 12px; }
+.dashboard-glass-hero { padding: 8px 4px 6px; }
+.dashboard-date-pill { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px; color: #637188; font-size: 12px; }
+.dashboard-glass-title { color: #182638; font-size: clamp(26px, 3vw, 34px); font-weight: 650; letter-spacing: -0.045em; line-height: 1.25; }
+.dashboard-glass-description { margin-top: 8px; color: #66758a; font-size: 13px; line-height: 1.7; }
+.dark .dashboard-glass-title { color: #f5f5f7; }
+.dark .dashboard-date-pill, .dark .dashboard-glass-description { color: #a1a1a6; }
+body.liquid-app.liquid-app :is(.card, .card-glass, .glass-card, .liquid-content) {
+  position: relative;
+  border: 1px solid var(--app-border);
+  border-radius: 22px;
+  background: var(--app-content);
+  box-shadow: 0 2px 9px rgb(35 54 81 / 3%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.dark body.liquid-app.liquid-app :is(.card, .card-glass, .glass-card, .liquid-content) { box-shadow: none; }
+.dashboard-metrics .card { min-width: 0; padding: 22px 20px; }
+.dashboard-metrics .card > .flex { align-items: flex-start; gap: 14px; }
+.dashboard-metrics .card > .flex > :last-child { min-width: 0; overflow-wrap: anywhere; }
+.dashboard-metrics .card > .flex > :first-child { flex-shrink: 0; padding: 10px; border-radius: 14px; }
+.dashboard-metrics .text-xl { margin-block: 3px; font-size: clamp(22px, 2vw, 28px); font-weight: 650; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; }
+.liquid-dashboard .text-gray-500 { color: #627088; }
+.dark .liquid-dashboard .text-gray-400, .dark .liquid-dashboard .dark\:text-dark-400 { color: #a1a1a6; }
+
+/* Control grouping is transparent: each control has one material surface. */
+.liquid-layout .liquid-dashboard .dashboard-controls.card {
+  position: sticky;
+  top: 88px;
+  z-index: 20;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.liquid-layout .dashboard-controls :is(.date-picker-trigger, .select-trigger, .btn),
+.liquid-layout .dashboard-actions button {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--liquid-edge);
+  border-radius: 18px;
+  color: var(--app-control-text);
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow);
+  backdrop-filter: blur(12px) saturate(155%);
+  -webkit-backdrop-filter: blur(12px) saturate(155%);
+}
+.dark .liquid-layout .dashboard-controls :is(.date-picker-trigger, .select-trigger, .btn) { color: var(--app-control-text); }
+.liquid-layout .dashboard-controls :is(.date-picker-trigger-open, .select-trigger-open) { border-color: rgb(95 146 209 / 65%); box-shadow: var(--liquid-shadow), 0 0 0 3px rgb(79 139 210 / 12%); }
+.liquid-layout .dashboard-controls .btn:disabled { opacity: 0.5; }
+
+/* SVG displacement bends the sampled backdrop at the rim, leaving labels untouched.
+   Browsers without SVG backdrop filters retain the blur and material artwork. */
+@supports (backdrop-filter: url("#liquid-lens")) {
+  .liquid-layout header.glass,
+  .liquid-layout .dashboard-controls :is(.date-picker-trigger, .select-trigger, .btn),
+  .liquid-layout .dashboard-actions button {
+    backdrop-filter: blur(7px) var(--liquid-refraction) saturate(140%);
+  }
+}
+
+/* Light spreads from the interaction point. Resting content never animates. */
+body.liquid-app.liquid-app .liquid-interacting::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(110px circle at var(--liquid-pointer-x, 50%) var(--liquid-pointer-y, 50%), var(--liquid-light), transparent 75%);
+  opacity: 0.5;
+}
+.liquid-layout :is(.sidebar-link, header button, header a, .dashboard-controls button, .dashboard-actions button, .liquid-dashboard button[aria-pressed]) {
+  transition: scale 380ms cubic-bezier(0.2, 1.6, 0.4, 1), box-shadow 250ms ease, background-color 200ms ease;
+}
+body.liquid-app.liquid-app .liquid-pressed { scale: 0.96; }
+body.liquid-app.liquid-app .liquid-pressed::before { opacity: 0.95; }
+.liquid-layout .liquid-dashboard button[aria-pressed] { position: relative; isolation: isolate; border-radius: 12px; }
+body.liquid-app.liquid-app :is(button, a, [role="tab"]):focus-visible { outline: 2px solid #4c8acb; outline-offset: 3px; }
+
+/* Menus thicken as they expand from their trigger; inner rows use flat feedback. */
+body.liquid-app.liquid-app .dropdown,
+body.liquid-app.liquid-app .date-picker-dropdown.date-picker-dropdown-liquid,
+.dark body.liquid-app.liquid-app .date-picker-dropdown.date-picker-dropdown-liquid,
+.dark .select-dropdown-portal.select-dropdown-liquid,
+.select-dropdown-portal.select-dropdown-liquid {
+  border: 1px solid var(--liquid-edge);
+  border-radius: 22px;
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow), 0 20px 50px -18px rgb(20 36 66 / 28%);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+body.liquid-app.liquid-app .dropdown { transform-origin: top right; }
+.date-picker-dropdown-liquid { z-index: 100; padding: 4px; }
+.date-picker-dropdown-liquid .date-picker-preset { border-radius: 12px; padding-block: 9px; }
+.date-picker-dropdown-liquid .date-picker-input { border-radius: 10px; }
+.date-picker-dropdown-liquid .date-picker-apply { border-radius: 12px; }
+.select-dropdown-liquid .select-option { margin: 3px 6px; border-radius: 12px; }
+.select-dropdown-liquid .select-option-selected { background: rgb(91 151 213 / 14%); color: #215f92; }
+.dark .select-dropdown-liquid .select-option-selected { color: #c4e3ff; }
+.select-dropdown-liquid .select-option-focused { background: rgb(121 157 203 / 12%); }
+.liquid-menu-enter-active,
+.liquid-menu-leave-active,
+body.liquid-app.liquid-app .dropdown-enter-active,
+body.liquid-app.liquid-app .dropdown-leave-active { transition: opacity 180ms ease, transform 380ms cubic-bezier(0.2, 1.15, 0.25, 1), filter 200ms ease; }
+.liquid-menu-enter-from,
+.liquid-menu-leave-to,
+body.liquid-app.liquid-app .dropdown-enter-from,
+body.liquid-app.liquid-app .dropdown-leave-to { opacity: 0; transform: translateY(-5px) scale(0.92); filter: blur(2px); }
+.liquid-menu-leave-active,
+body.liquid-app.liquid-app .dropdown-leave-active { transition-duration: 150ms; }
+
+/* Shared application surfaces, including elements teleported to body.
+   The body scope also outranks component-scoped dark utilities, independent of route load order. */
+body.liquid-app.liquid-app {
+  background: var(--app-page);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+body.liquid-app.liquid-app #app { min-height: 100dvh; }
+.liquid-layout main { min-width: 0; }
+body.liquid-app.liquid-app .liquid-public {
+  background: var(--app-page);
+  background-image: radial-gradient(ellipse at 8% 0, rgb(161 191 229 / 12%), transparent 45%);
+}
+body.liquid-app.liquid-app .liquid-public > header {
+  position: sticky;
+  top: 12px;
+  margin: 12px 24px 0;
+  z-index: 30;
+  border: 1px solid var(--liquid-edge);
+  border-radius: 24px;
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow);
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
+}
+body.liquid-app.liquid-app .liquid-public > .liquid-decoration { display: none; }
+body.liquid-app.liquid-app .liquid-auth { padding-block: 40px; }
+body.liquid-app.liquid-app :is(.card-header, .card-footer) { border-color: var(--app-border); }
+body.liquid-app.liquid-app .card-hover:hover { transform: none; box-shadow: 0 6px 22px -12px rgb(40 65 100 / 20%); }
+body.liquid-app.liquid-app :is(.input, .form-input, .form-textarea) {
+  border-radius: 14px;
+  border-color: var(--app-border);
+  background-color: var(--app-content);
+  box-shadow: inset 0 1px 2px rgb(22 40 70 / 3%);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+body.liquid-app.liquid-app :is(.input, .form-input, .form-textarea):focus {
+  border-color: #568fc8;
+  box-shadow: 0 0 0 3px rgb(79 139 210 / 16%);
+}
+body.liquid-app.liquid-app :is(.input, .form-input, .form-textarea):disabled { background-color: var(--app-muted); }
+body.liquid-app.liquid-app .input-error { border-color: #ef4444; }
+body.liquid-app.liquid-app .input-error:focus { box-shadow: 0 0 0 3px rgb(239 68 68 / 16%); }
+body.liquid-app.liquid-app .liquid-table-row:not(.liquid-row-selected) { background: var(--app-content); border-color: var(--app-border); border-radius: 20px; }
+body.liquid-app.liquid-app .liquid-row-selected { border-radius: 20px; }
+
+/* Low-specificity positioning preserves absolute/fixed icon buttons. */
+:where(body.liquid-app.liquid-app) :where(button, .btn, header a, .sidebar-link, [role="tab"]) { position: relative; isolation: isolate; }
+body.liquid-app.liquid-app :is(button, .btn, .sidebar-link, header a, [role="tab"]) {
+  transition: scale 380ms cubic-bezier(0.2, 1.6, 0.4, 1), box-shadow 200ms ease, background-color 180ms ease;
+}
+body.liquid-app.liquid-app .btn { border-radius: 16px; }
+body.liquid-app.liquid-app .btn-sm { border-radius: 12px; }
+body.liquid-app.liquid-app :is(.btn-secondary, .liquid-control, .select-trigger, .date-picker-trigger) {
+  color: var(--app-control-text);
+  border: 1px solid var(--liquid-edge);
+  border-radius: 16px;
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow);
+  backdrop-filter: blur(12px) saturate(155%);
+  -webkit-backdrop-filter: blur(12px) saturate(155%);
+}
+body.liquid-app.liquid-app :is(.select-trigger-open, .date-picker-trigger-open) {
+  border-color: rgb(95 146 209 / 65%);
+  box-shadow: var(--liquid-shadow), 0 0 0 3px rgb(79 139 210 / 12%);
+}
+body.liquid-app.liquid-app .select-trigger-error { border-color: #ef4444; }
+body.liquid-app.liquid-app .select-trigger-disabled { background: var(--app-muted); }
+body.liquid-app.liquid-app :is(.btn-primary, .btn-danger, .btn-success, .btn-warning) {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), 0 4px 12px -7px rgb(25 53 87 / 40%);
+}
+
+body.liquid-app.liquid-app .liquid-pagination {
+  gap: 12px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  padding-inline: 0;
+}
+.liquid-pagination nav { gap: 5px; box-shadow: none; }
+body.liquid-app.liquid-app .liquid-pagination button:not(.btn) {
+  margin-left: 0;
+  border: 1px solid var(--liquid-edge);
+  border-radius: 12px;
+  color: var(--app-control-text);
+  background: var(--liquid-surface);
+  box-shadow: inset 0 1px 0 var(--liquid-edge);
+}
+body.liquid-app.liquid-app .liquid-pagination button[aria-current="page"] {
+  color: #fff;
+  background: #286da8;
+  border-color: transparent;
+}
+body.liquid-app.liquid-app :is(.table-container, .table-wrapper) { border-color: var(--app-border); }
+body.liquid-app.liquid-app :is(.table, .table-wrapper table) { font-variant-numeric: tabular-nums; }
+body.liquid-app.liquid-app :is(.table th, .table-wrapper th, .table-wrapper thead) {
+  background: var(--app-muted);
+  border-color: var(--app-border);
+  backdrop-filter: none;
+}
+body.liquid-app.liquid-app :is(.table td, .table-wrapper td) { border-color: var(--app-border); }
+body.liquid-app.liquid-app :is(.table, .table-wrapper table) tbody tr:hover { background: var(--table-current-background, var(--app-muted)); }
+
+body.liquid-app.liquid-app :is(.liquid-popover, .dropdown) {
+  border: 1px solid var(--liquid-edge);
+  border-radius: 20px;
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow), 0 20px 50px -18px rgb(20 36 66 / 28%);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  transform-origin: top right;
+}
+body.liquid-app.liquid-app .liquid-popover button { border-radius: 12px; }
+body.liquid-app.liquid-app :is(.modal-overlay, .dialog-overlay, .liquid-overlay) {
+  background: rgb(14 24 42 / 38%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+body.liquid-app.liquid-app :is(.modal-content, .dialog-container, .liquid-dialog) {
+  border: 1px solid var(--liquid-edge);
+  border-radius: 26px;
+  background: var(--app-content);
+  box-shadow: 0 32px 90px -30px rgb(7 20 42 / 45%), inset 0 1px 0 var(--liquid-edge);
+}
+body.liquid-app.liquid-app :is(.modal-header, .modal-footer, .dialog-header, .dialog-footer) {
+  border-color: var(--app-border);
+  background: var(--app-muted);
+}
+body.liquid-app.liquid-app :is(.modal-header, .dialog-header) { border-radius: 25px 25px 0 0; }
+body.liquid-app.liquid-app :is(.modal-footer, .dialog-footer) { border-radius: 0 0 25px 25px; }
+body.liquid-app.liquid-app .modal-enter-active .modal-content { transition: transform 380ms cubic-bezier(0.2, 1.15, 0.25, 1), opacity 200ms ease; }
+body.liquid-app.liquid-app .modal-enter-from .modal-content { transform: translateY(12px) scale(0.96); }
+body.liquid-app.liquid-app .liquid-toast {
+  border-radius: 18px;
+  background: var(--liquid-surface);
+  box-shadow: var(--liquid-shadow);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+body.liquid-app.liquid-app .settings-tabs-shell { top: 88px; border-radius: 22px; border-color: var(--liquid-edge); background: var(--liquid-surface); box-shadow: var(--liquid-shadow); backdrop-filter: blur(14px); }
+body.liquid-app.liquid-app .settings-tabs { gap: 4px; }
+body.liquid-app.liquid-app .settings-tab { border-radius: 14px; }
+body.liquid-app.liquid-app .settings-tab-active { background: var(--app-content); box-shadow: 0 2px 8px rgb(30 60 90 / 8%); }
+body.liquid-app.liquid-app .settings-tab-active::after { display: none; }
+
+@supports (backdrop-filter: url("#liquid-lens")) {
+  body.liquid-app.liquid-app .liquid-public > header,
+  body.liquid-app.liquid-app :is(.btn-secondary, .select-trigger, .date-picker-trigger, .liquid-control, .settings-tabs-shell) {
+    backdrop-filter: blur(7px) var(--liquid-refraction) saturate(140%);
+  }
+  body.liquid-app.liquid-app :is(.sidebar, .liquid-popover, .dropdown, .select-dropdown-liquid, .date-picker-dropdown-liquid, .liquid-toast) {
+    backdrop-filter: blur(18px) var(--liquid-refraction) saturate(125%);
+  }
+}
+
+@media (min-width: 1024px) {
+  body.liquid-app.liquid-app .table-page-layout:not(.mobile-mode) { height: calc(100dvh - 76px - 4rem); }
+}
+@media (max-width: 767px) {
+  .liquid-pagination > .sm\:flex { flex-wrap: wrap; gap: 12px; }
+  .liquid-pagination > .sm\:flex > .flex { flex-wrap: wrap; gap: 10px; }
+}
+
+@media (max-width: 1023px) {
+  .liquid-layout .sidebar.-translate-x-full { transform: translateX(calc(-100% - 24px)); }
+}
+@media (min-width: 1024px) {
+  .liquid-layout .sidebar { transform: none; }
+}
+@media (max-width: 639px) {
+  body.liquid-app.liquid-app .liquid-public > header { top: 8px; margin: 8px 12px 0; border-radius: 20px; }
+  body.liquid-app.liquid-app :is(.modal-content, .dialog-container, .liquid-dialog) { border-radius: 22px; }
+  body.liquid-app.liquid-app .liquid-auth .card-glass { padding: 24px; }
+  body.liquid-app.liquid-app .liquid-toast { min-width: 0; width: min(360px, calc(100vw - 32px)); }
+  .liquid-layout header.glass { top: 8px; margin: 8px 12px 0; border-radius: 20px; }
+  .dashboard-metrics { gap: 12px; }
+  .dashboard-metrics .card { padding: 16px; border-radius: 20px; }
+  .dashboard-metrics .card > .flex { flex-direction: column; gap: 10px; }
+  .dashboard-metrics .card > .flex > :first-child { padding: 9px; border-radius: 13px; }
+  .liquid-layout .liquid-dashboard .dashboard-controls.card { position: relative; top: auto; }
+  .dashboard-controls > .flex { gap: 12px; }
+  .dashboard-glass-hero { padding-block: 4px; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.liquid-app.liquid-app, .select-dropdown-liquid, .date-picker-dropdown-liquid { --liquid-surface: #f5f5f7; --liquid-navigation-surface: #f5f5f7; }
+  .dark body.liquid-app.liquid-app, .dark .select-dropdown-liquid, .dark .date-picker-dropdown-liquid { --liquid-surface: #242424; --liquid-navigation-surface: #242424; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.liquid-app.liquid-app :is(.modal-overlay, .dialog-overlay, .liquid-overlay) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body.liquid-app.liquid-app, .select-dropdown-liquid, .date-picker-dropdown-liquid { --liquid-surface: #f5f5f7; --liquid-navigation-surface: #f5f5f7; }
+  .dark body.liquid-app.liquid-app, .dark .select-dropdown-liquid, .dark .date-picker-dropdown-liquid { --liquid-surface: #242424; --liquid-navigation-surface: #242424; }
+  body.liquid-app.liquid-app :is(.sidebar, header.glass, .liquid-public > header, .settings-tabs-shell, .btn-secondary, .select-trigger, .date-picker-trigger, .liquid-control, .dropdown, .liquid-popover, .liquid-toast, .select-dropdown-liquid, .date-picker-dropdown-liquid) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  body.liquid-app.liquid-app, .select-dropdown-liquid, .date-picker-dropdown-liquid { --liquid-edge: #687c93; --app-border: #687c93; --liquid-surface: #fff; }
+  .dark body.liquid-app.liquid-app, .dark .select-dropdown-liquid, .dark .date-picker-dropdown-liquid { --liquid-edge: #a1a1a6; --app-border: #a1a1a6; --liquid-surface: #161616; --liquid-navigation-surface: #161616; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.liquid-app.liquid-app :is(.code-line, .fade-up) { opacity: 1; transform: none; }
+  body.liquid-app.liquid-app .terminal-window { transform: none; }
+  body.liquid-app.liquid-app *, body.liquid-app.liquid-app *::before, body.liquid-app.liquid-app *::after,
+  .select-dropdown-liquid, .date-picker-dropdown-liquid { animation: none !important; transition: none !important; scroll-behavior: auto; }
+  body.liquid-app.liquid-app .liquid-pressed { scale: 1; }
+  body.liquid-app.liquid-app .liquid-interacting::before { display: none; }
+  .liquid-menu-enter-from, .liquid-menu-leave-to { transform: none; filter: none; }
+}

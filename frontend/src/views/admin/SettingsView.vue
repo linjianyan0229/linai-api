@@ -17,7 +17,7 @@
             role="tablist"
             :aria-label="t('admin.settings.title')"
           >
-            <div class="settings-tabs">
+            <div v-liquid-pill class="settings-tabs">
               <button
                 v-for="tab in settingsTabs"
                 :key="tab.key"
@@ -2074,7 +2074,7 @@
                   >
                     {{ t("admin.settings.captcha.provider") }}
                   </label>
-                  <div
+                  <div v-liquid-pill
                     class="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
                   >
                     <button
@@ -2086,6 +2086,7 @@
                           ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                           : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                       "
+                      :aria-pressed="captchaProviderSelection === 'turnstile'"
                       @click="selectCaptchaProvider('turnstile')"
                     >
                       {{ t("admin.settings.captcha.providerTurnstile") }}
@@ -2099,6 +2100,7 @@
                           ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                           : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                       "
+                      :aria-pressed="captchaProviderSelection === 'tencent'"
                       @click="selectCaptchaProvider('tencent')"
                     >
                       {{ t("admin.settings.captcha.providerTencent") }}
@@ -2112,6 +2114,7 @@
                           ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                           : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                       "
+                      :aria-pressed="captchaProviderSelection === 'aliyun'"
                       @click="selectCaptchaProvider('aliyun')"
                     >
                       {{ t("admin.settings.captcha.providerAliyun") }}
@@ -2178,7 +2181,7 @@
                     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                       {{ t("admin.settings.tencentCaptcha.region") }}
                     </label>
-                    <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
+                    <div v-liquid-pill class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
                       <button
                         type="button"
                         data-testid="tencent-captcha-region-cn"
@@ -2188,7 +2191,8 @@
                             ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                             : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                         "
-                        @click="form.tencent_captcha_region = 'cn'"
+                        :aria-pressed="form.tencent_captcha_region !== 'intl'"
+                      @click="form.tencent_captcha_region = 'cn'"
                       >
                         {{ t("admin.settings.tencentCaptcha.regionCn") }}
                       </button>
@@ -2201,7 +2205,8 @@
                             ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                             : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                         "
-                        @click="form.tencent_captcha_region = 'intl'"
+                        :aria-pressed="form.tencent_captcha_region === 'intl'"
+                      @click="form.tencent_captcha_region = 'intl'"
                       >
                         {{ t("admin.settings.tencentCaptcha.regionIntl") }}
                       </button>
@@ -2328,7 +2333,7 @@
                       >
                         {{ t("admin.settings.aliyunCaptcha.region") }}
                       </label>
-                      <div
+                      <div v-liquid-pill
                         class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
                       >
                         <button
@@ -2339,7 +2344,8 @@
                               ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                               : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                           "
-                          @click="form.aliyun_captcha_region = 'cn'"
+                          :aria-pressed="form.aliyun_captcha_region !== 'sgp'"
+                      @click="form.aliyun_captcha_region = 'cn'"
                         >
                           {{ t("admin.settings.aliyunCaptcha.regionCn") }}
                         </button>
@@ -2351,7 +2357,8 @@
                               ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                               : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                           "
-                          @click="form.aliyun_captcha_region = 'sgp'"
+                          :aria-pressed="form.aliyun_captcha_region === 'sgp'"
+                      @click="form.aliyun_captcha_region = 'sgp'"
                         >
                           {{ t("admin.settings.aliyunCaptcha.regionSgp") }}
                         </button>
@@ -6990,7 +6997,7 @@
 	                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
 	                    {{ localText("展示形式", "Display mode") }}
 	                  </label>
-	                  <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
+	                  <div v-liquid-pill class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
                     <button
                       type="button"
                       class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
@@ -6999,6 +7006,7 @@
                           ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                           : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                       "
+                      :aria-pressed="form.login_agreement_mode === 'modal'"
                       @click="form.login_agreement_mode = 'modal'"
                     >
                       <Icon name="shield" size="sm" />
@@ -7012,6 +7020,7 @@
                           ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                           : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                       "
+                      :aria-pressed="form.login_agreement_mode === 'checkbox'"
                       @click="form.login_agreement_mode = 'checkbox'"
                     >
                       <Icon name="checkCircle" size="sm" />
@@ -7198,7 +7207,7 @@
                 <label class="input-label">
                   {{ t('admin.settings.features.channelMonitor.mode') }}
                 </label>
-                <div class="mt-1.5 inline-flex w-full max-w-md rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-dark-600 dark:bg-dark-900/40">
+                <div v-liquid-pill class="mt-1.5 inline-flex w-full max-w-md rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-dark-600 dark:bg-dark-900/40">
                   <button
                     type="button"
                     class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
@@ -7207,6 +7216,7 @@
                         ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                         : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                     "
+                    :aria-pressed="form.channel_monitor_mode === 'v2'"
                     @click="form.channel_monitor_mode = 'v2'"
                   >
                     {{ t('admin.settings.features.channelMonitor.modeV2') }}
@@ -7219,6 +7229,7 @@
                         ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
                         : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
                     "
+                    :aria-pressed="form.channel_monitor_mode === 'v1'"
                     @click="form.channel_monitor_mode = 'v1'"
                   >
                     {{ t('admin.settings.features.channelMonitor.modeV1') }}
@@ -8219,28 +8230,7 @@
                       t("admin.settings.payment.cancelRateLimit")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_cancel_rate_limit_enabled
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_cancel_rate_limit_enabled =
-                            !form.payment_cancel_rate_limit_enabled
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_cancel_rate_limit_enabled
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle v-model="form.payment_cancel_rate_limit_enabled" :aria-label="t('admin.settings.payment.cancelRateLimit')" />
                       <Select
                         v-model="form.payment_cancel_rate_limit_window_mode"
                         :options="cancelRateLimitModeOptions"
@@ -8309,28 +8299,7 @@
                       t("admin.settings.payment.alipayForceQRCode")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_alipay_force_qrcode
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_alipay_force_qrcode =
-                            !form.payment_alipay_force_qrcode
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_alipay_force_qrcode
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle :model-value="!!form.payment_alipay_force_qrcode" :aria-label="t('admin.settings.payment.alipayForceQRCode')" @update:model-value="form.payment_alipay_force_qrcode = $event" />
                       <span class="text-sm text-gray-500 dark:text-gray-400">{{
                         t("admin.settings.payment.alipayForceQRCodeHint")
                       }}</span>
@@ -8341,28 +8310,7 @@
                       t("admin.settings.payment.alipayMobilePrecreateDeepLink")
                     }}</label>
                     <div class="flex items-center gap-2">
-                      <button
-                        type="button"
-                        :class="[
-                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                          form.payment_alipay_mobile_precreate_deep_link
-                            ? 'bg-primary-500'
-                            : 'bg-gray-300 dark:bg-dark-600',
-                        ]"
-                        @click="
-                          form.payment_alipay_mobile_precreate_deep_link =
-                            !form.payment_alipay_mobile_precreate_deep_link
-                        "
-                      >
-                        <span
-                          :class="[
-                            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                            form.payment_alipay_mobile_precreate_deep_link
-                              ? 'translate-x-5'
-                              : 'translate-x-0',
-                          ]"
-                        />
-                      </button>
+                      <Toggle :model-value="!!form.payment_alipay_mobile_precreate_deep_link" :aria-label="t('admin.settings.payment.alipayMobilePrecreateDeepLink')" @update:model-value="form.payment_alipay_mobile_precreate_deep_link = $event" />
                       <span class="text-sm text-gray-500 dark:text-gray-400">{{
                         t("admin.settings.payment.alipayMobilePrecreateDeepLinkHint")
                       }}</span>
@@ -8850,19 +8798,12 @@
                     :key="index"
                     class="flex items-center gap-2"
                   >
-                    <label
-                      class="relative inline-flex items-center cursor-pointer shrink-0"
-                    >
-                      <input
-                        type="checkbox"
-                        :checked="!entry.disabled"
-                        @change="entry.disabled = !entry.disabled"
-                        class="sr-only peer"
-                      />
-                      <div
-                        class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:after:border-gray-500 peer-checked:bg-primary-600"
-                      ></div>
-                    </label>
+                    <Toggle
+                      :model-value="!entry.disabled"
+                      size="sm"
+                      :aria-label="entry.email || t('admin.settings.quotaNotify.emails')"
+                      @update:model-value="entry.disabled = !$event"
+                    />
                     <input
                       v-model="entry.email"
                       type="email"
@@ -8975,6 +8916,7 @@
 </template>
 
 <script setup lang="ts">
+import { vLiquidPill } from '@/directives/liquidPill'
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { listPlatformIds } from "@/constants/platformCatalog";
 import { useI18n } from "vue-i18n";

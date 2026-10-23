@@ -1,7 +1,7 @@
 <template>
   <div v-if="!isDesktopViewport" class="space-y-3">
     <template v-if="loading">
-      <div v-for="i in 5" :key="i" class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
+      <div v-for="i in 5" :key="i" class="liquid-table-row rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
         <div class="space-y-3">
           <div v-for="column in dataColumns" :key="column.key" class="flex justify-between">
             <div class="h-4 w-20 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
@@ -15,7 +15,7 @@
     </template>
 
     <template v-else-if="!data || data.length === 0">
-      <div class="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-dark-700 dark:bg-dark-900">
+      <div class="liquid-table-row rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-dark-700 dark:bg-dark-900">
         <slot name="empty">
           <div class="flex flex-col items-center">
             <Icon
@@ -48,9 +48,10 @@
       <div
         v-for="(row, index) in sortedData"
         :key="resolveRowKey(row, index)"
-        class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900"
+        class="liquid-table-row rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900"
         :class="{
           'cursor-pointer': clickableRows,
+          'liquid-row-selected': selectable && isRowSelected(row, index),
           'border-primary-300 bg-primary-50/40 dark:border-primary-700 dark:bg-primary-900/10': selectable && isRowSelected(row, index)
         }"
         @click="clickableRows && emit('rowClick', row)"
@@ -211,6 +212,7 @@
             v-for="item in renderRows"
             :key="resolveRowKey(item.row, item.index)"
             :data-row-id="resolveRowKey(item.row, item.index)"
+            :data-row-selected="selectable && isRowSelected(item.row, item.index) ? 'true' : undefined"
             :data-index="item.index"
             :ref="item.measure ? measureElement : undefined"
             class="hover:bg-gray-50 dark:hover:bg-dark-800"
@@ -954,6 +956,10 @@ defineExpose({
 /* 表格横向滚动 */
 .table-wrapper {
   --select-col-width: 52px; /* 勾选列宽度：px-6 (24px*2) + checkbox (16px) */
+  --table-body-background: var(--app-content, #fff);
+  --table-hover-background: var(--app-muted, #f5f5f5);
+  --table-header-background: var(--app-muted, #f5f5f5);
+  --table-selected-background: color-mix(in srgb, var(--table-body-background), #14b8a6 8%);
   position: relative;
   overflow-x: auto;
   overflow-y: auto;
@@ -961,35 +967,39 @@ defineExpose({
   min-height: 0;
   isolation: isolate;
 }
+.dark .table-wrapper {
+  --table-body-background: var(--app-content, #161616);
+  --table-hover-background: var(--app-muted, #242424);
+  --table-header-background: var(--app-muted, #242424);
+}
 
 /* 表头容器，确保在滚动时覆盖表体内容 */
 .table-wrapper .table-header {
   position: sticky;
   top: 0;
   z-index: 200;
-  background-color: rgb(249 250 251);
-}
-
-.dark .table-wrapper .table-header {
-  background-color: rgb(31 41 55);
+  background-color: var(--table-header-background);
 }
 
 /* 表体保持在表头下方 */
 .table-body {
   position: relative;
   z-index: 0;
+  background-color: var(--table-body-background);
 }
+.table-body tr[data-row-id] {
+  --table-current-background: var(--table-body-background);
+  background-color: var(--table-current-background);
+}
+.table-body tr[data-row-id]:hover { --table-current-background: var(--table-hover-background); }
+.table-body tr[data-row-selected="true"] { --table-current-background: var(--table-selected-background); }
 
 /* 所有表头单元格固定在顶部 */
 .sticky-header-cell {
   position: sticky;
   top: 0;
   z-index: 210; /* 必须高于所有表体内容 */
-  background-color: rgb(249 250 251);
-}
-
-.dark .sticky-header-cell {
-  background-color: rgb(31 41 55);
+  background-color: var(--table-header-background);
 }
 
 /* Sticky 列基础样式 */
@@ -1025,20 +1035,7 @@ defineExpose({
 
 /* 表体 sticky 列背景 */
 tbody .sticky-col {
-  background-color: white;
-}
-
-.dark tbody .sticky-col {
-  background-color: rgb(17 24 39);
-}
-
-/* hover 状态保持 */
-tbody tr:hover .sticky-col {
-  background-color: rgb(249 250 251);
-}
-
-.dark tbody tr:hover .sticky-col {
-  background-color: rgb(31 41 55);
+  background-color: var(--table-current-background, var(--table-body-background));
 }
 
 /* 阴影只在可滚动时显示 */

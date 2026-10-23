@@ -41,6 +41,8 @@ const (
 	FieldGroupName = "group_name"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
+	// FieldCandyEnabled holds the string denoting the candy_enabled field in the database.
+	FieldCandyEnabled = "candy_enabled"
 	// FieldIntervalSeconds holds the string denoting the interval_seconds field in the database.
 	FieldIntervalSeconds = "interval_seconds"
 	// FieldJitterSeconds holds the string denoting the jitter_seconds field in the database.
@@ -104,6 +106,7 @@ var Columns = []string{
 	FieldExtraModels,
 	FieldGroupName,
 	FieldEnabled,
+	FieldCandyEnabled,
 	FieldIntervalSeconds,
 	FieldJitterSeconds,
 	FieldLastCheckedAt,
@@ -155,6 +158,8 @@ var (
 	GroupNameValidator func(string) error
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
+	// DefaultCandyEnabled holds the default value on creation for the "candy_enabled" field.
+	DefaultCandyEnabled bool
 	// IntervalSecondsValidator is a validator for the "interval_seconds" field. It is called by the builders before save.
 	IntervalSecondsValidator func(int) error
 	// DefaultJitterSeconds holds the default value on creation for the "jitter_seconds" field.
@@ -266,6 +271,11 @@ func ByGroupName(opts ...sql.OrderTermOption) OrderOption {
 // ByEnabled orders the results by the enabled field.
 func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
+}
+
+// ByCandyEnabled orders the results by the candy_enabled field.
+func ByCandyEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCandyEnabled, opts...).ToFunc()
 }
 
 // ByIntervalSeconds orders the results by the interval_seconds field.
