@@ -16,7 +16,7 @@ services:
   # Sub2API Application
   # ===========================================================================
   sub2api:
-    image: weishaw/sub2api:latest
+    image: ${LINAI_IMAGE:-ghcr.io/linjianyan0229/linai-api:latest}
     container_name: sub2api
     restart: unless-stopped
     security_opt:
@@ -156,6 +156,7 @@ services:
       # Proxy for accessing GitHub (online updates + pricing data)
       # Examples: http://host:port, socks5://host:port
       - UPDATE_PROXY_URL=${UPDATE_PROXY_URL:-}
+      - UPDATE_REPOSITORY=${UPDATE_REPOSITORY:-linjianyan0229/linai-api}
 
       # =======================================================================
       # Gateway Upstream, Scheduling & Image Configuration

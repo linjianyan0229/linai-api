@@ -20,4 +20,12 @@ if [ "${1#-}" != "$1" ]; then
     set -- /app/sub2api "$@"
 fi
 
+# The image binary verifies the persistent update and chooses the newer version.
+# Updates survive container recreation in /app/data; a newer image takes priority.
+if [ "${1:-}" = "/app/sub2api" ] && [ -n "${UPDATE_STORAGE_DIR:-}" ]; then
+    application_path="$(/app/sub2api --resolve-update)"
+    shift
+    set -- "$application_path" "$@"
+fi
+
 exec "$@"

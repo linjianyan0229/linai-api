@@ -1,0 +1,52 @@
+name: Publish VERSION
+
+on:
+  push:
+    branches: [main]
+    paths: [backend/cmd/server/VERSION]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and verify without creating a tag or publishing
+        type: boolean
+        default: true
+      simple_release:
+        description: Build Linux x86_64 only, including its online update package
+        type: boolean
+        default: false
+
+concurrency:
+  group: version-release-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.version.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate version and create its immutable tag
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: python .github/release-tools/version_release.py
+
+  publish:
+    needs: version
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.ref }}
+      dry_run: ${{ inputs.dry_run == true }}
+      simple_release: ${{ inputs.simple_release == true }}
+    secrets: inherit

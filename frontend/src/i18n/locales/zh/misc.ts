@@ -1,4 +1,16 @@
 export default {
+  version: {
+    title: '版本与更新', current: '当前版本', available: '有新版本可用', check: '检查更新', checking: '正在检查…',
+    latest: '未发现更新的正式版本', select: '选择更新版本', releasePage: '发布页面', noNotes: '此版本暂无更新说明。',
+    optional: '仅从上述 GitHub 仓库下载正式发布包。不会自动安装；安装完成后，由你确认重启应用。',
+    unsupported: '在线安装需要 Linux 正式构建。请从发布页面下载，或重新构建部署。',
+    noPackage: '该版本未提供适用于此平台的安装包及校验文件，请选择其他版本。',
+    confirm: '确认下载并安装 v{version}？请先备份数据库与配置。安装后需要重启才能生效，重启会短暂中断服务。',
+    install: '下载并安装', confirmInstall: '确认安装', later: '暂不更新', installing: '正在下载并校验安装包，请保持页面打开…',
+    ready: 'v{version} 已安装，等待重启', restartHint: '当前服务仍使用原版本。确认重启后，新版本及内置页面将生效。',
+    restart: '重启并使用新版本', restarting: '正在重启，等待新版本启动…', checkFailed: '检查失败，请稍后重试；未安装任何更新。',
+    installFailed: '更新请求未完成，请检查网络后刷新安装状态。后台下载可能仍在进行。', restartTimeout: '暂未确认新版本启动，请检查服务日志后重试。'
+  },
 
   // Subscription Progress (Header component)
   subscriptionProgress: {

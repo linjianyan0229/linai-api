@@ -33,6 +33,10 @@ type BuildInfo struct {
 	BuildType string
 }
 
+func ProvideReleaseUpdateService(client GitHubReleaseClient, cfg *config.Config, buildInfo BuildInfo) *ReleaseUpdateService {
+	return NewReleaseUpdateService(client, cfg.Update.Repository, buildInfo.Version, buildInfo.BuildType)
+}
+
 // ProvidePricingService creates and initializes PricingService
 func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient) (*PricingService, error) {
 	svc := NewPricingService(cfg, remoteClient)
@@ -851,6 +855,7 @@ func ProvideAPIKeyService(
 
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
+	ProvideReleaseUpdateService,
 	// Core services
 	ProvideAuthService,
 	NewPasskeyService,

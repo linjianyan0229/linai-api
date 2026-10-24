@@ -80,11 +80,11 @@ class ReleaseMatrixTest(unittest.TestCase):
                 self.assertFalse(data['dockers'])
                 self.assertEqual(data['release']['header'], original['release']['header'])
                 self.assertEqual(data['release']['footer'], original['release']['footer'])
+                self.assertFalse(data['release']['skip_upload'])
+                self.assertTrue(data['checksum']['disable'])
+                self.assertIn({'glob': '.release-context/checksums.txt'}, data['release']['extra_files'])
                 if simple:
-                    self.assertTrue(data['checksum']['disable'])
-                    self.assertTrue(data['release']['skip_upload'])
-                else:
-                    self.assertEqual(data['checksum']['extra_files'], data['release']['extra_files'])
+                    self.assertNotIn({'glob': 'release-input/sub2api_*.zip'}, data['release']['extra_files'])
 
     def test_collect_and_verify_hash_and_source_binding(self):
         args = self.fixture_artifacts()
@@ -116,6 +116,12 @@ class ReleaseMatrixTest(unittest.TestCase):
         Path('backend/resources').mkdir()
         Path('backend/resources/data').write_text('fixture')
         release.contexts(args)
+        lines = (Path(args.output) / 'checksums.txt').read_text().splitlines()
+        self.assertEqual(len(lines), len(release.targets()))
+        for line in lines:
+            digest, name = line.split()
+            self.assertEqual(name, Path(name).name)
+            self.assertEqual(digest, release.sha256(Path(args.input) / name))
         for arch in ('amd64', 'arm64'):
             binary = Path('contexts') / arch / 'sub2api'
             self.assertEqual(binary.read_bytes(), b'fixture')
@@ -185,6 +191,23 @@ class ReleaseMatrixTest(unittest.TestCase):
                     self.assertIn('fixturehub/sub2api:9.8', log)
                     self.assertIn('ghcr.io/exampleowner/sub2api:9', log)
 
+
+
+    def test_fork_image_uses_its_repository_name(self):
+        fake_bin = Path('bin')
+        fake_bin.mkdir()
+        docker = fake_bin / 'docker'
+        docker.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$DOCKER_LOG"\n')
+        docker.chmod(0o755)
+        env = {**os.environ, 'PATH': str(fake_bin.resolve()) + os.pathsep + os.environ['PATH'],
+               'DOCKER_LOG': str(Path('fork.log').resolve()), 'RUNNER_TEMP': self.temp.name,
+               'RELEASE_VERSION': '9.8.7', 'RELEASE_SHA': 'a' * 40,
+               'GITHUB_REPOSITORY': 'ExampleOwner/linai-api', 'DRY_RUN': 'true',
+               'SIMPLE_RELEASE': 'true', 'DOCKERHUB_USERNAME': 'skip'}
+        subprocess.run(['bash', str(ROOT / '.github/release-tools/release-images.sh')], env=env, check=True)
+        log = Path('fork.log').read_text()
+        self.assertIn('ghcr.io/exampleowner/linai-api:9.8.7', log)
+        self.assertNotIn('ghcr.io/exampleowner/sub2api', log)
 
 
 if __name__ == '__main__':

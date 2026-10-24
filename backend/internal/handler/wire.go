@@ -157,8 +157,10 @@ func ProvideBatchImageHandler(
 }
 
 // ProvideSystemHandler injects local build information.
-func ProvideSystemHandler(buildInfo service.BuildInfo, lockService *service.SystemOperationLockService) *admin.SystemHandler {
-	return admin.NewSystemHandler(buildInfo.Version, lockService)
+func ProvideSystemHandler(buildInfo service.BuildInfo, lockService *service.SystemOperationLockService, updater *service.ReleaseUpdateService) *admin.SystemHandler {
+	h := admin.NewSystemHandler(buildInfo.Version, lockService)
+	h.SetReleaseUpdater(updater)
+	return h
 }
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo

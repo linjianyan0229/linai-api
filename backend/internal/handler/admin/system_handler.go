@@ -18,7 +18,15 @@ import (
 type SystemHandler struct {
 	version string
 	lockSvc *service.SystemOperationLockService
+	updater systemReleaseUpdater
 }
+
+type systemReleaseUpdater interface {
+	Check(context.Context, bool) (*service.ReleaseUpdateInfo, error)
+	Install(context.Context, string) error
+}
+
+func (h *SystemHandler) SetReleaseUpdater(updater *service.ReleaseUpdateService) { h.updater = updater }
 
 func NewSystemHandler(version string, lockSvc *service.SystemOperationLockService) *SystemHandler {
 	return &SystemHandler{version: version, lockSvc: lockSvc}
@@ -27,6 +35,47 @@ func NewSystemHandler(version string, lockSvc *service.SystemOperationLockServic
 // GetVersion reads local build metadata without contacting a release server.
 func (h *SystemHandler) GetVersion(c *gin.Context) {
 	response.Success(c, gin.H{"version": h.version})
+}
+
+func (h *SystemHandler) CheckUpdates(c *gin.Context) {
+	if h.updater == nil {
+		response.ErrorFrom(c, service.ErrReleaseCheckFailed)
+		return
+	}
+	info, err := h.updater.Check(c.Request.Context(), c.Query("force") == "true")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, info)
+}
+
+func (h *SystemHandler) PerformUpdate(c *gin.Context) {
+	var request struct {
+		Version string `json:"version" binding:"required,max=64"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.ErrorFrom(c, service.ErrReleaseNotAllowed)
+		return
+	}
+	if h.updater == nil {
+		response.ErrorFrom(c, service.ErrReleaseCheckFailed)
+		return
+	}
+	operationID := buildSystemOperationID(c, "update:"+request.Version)
+	executeAdminIdempotentJSONWithTimeout(c, "admin.system.release_update", request, service.DefaultSystemOperationIdempotencyTTL(), 15*time.Minute, func(ctx context.Context) (any, error) {
+		lock, release, err := h.acquireSystemLock(ctx, operationID)
+		if err != nil {
+			return nil, err
+		}
+		succeeded := false
+		defer func() { release("RELEASE_INSTALL_FAILED", succeeded) }()
+		if err := h.updater.Install(ctx, request.Version); err != nil {
+			return nil, err
+		}
+		succeeded = true
+		return gin.H{"version": request.Version, "need_restart": true, "operation_id": lock.OperationID()}, nil
+	})
 }
 
 // RestartService restarts the systemd service

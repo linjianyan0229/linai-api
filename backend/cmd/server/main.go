@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/releaseupdate"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/setup"
 	"github.com/Wei-Shaw/sub2api/internal/web"
@@ -59,7 +61,22 @@ func main() {
 	// Parse command line flags
 	setupMode := flag.Bool("setup", false, "Run setup wizard in CLI mode")
 	showVersion := flag.Bool("version", false, "Show version information")
+	resolveUpdate := flag.Bool("resolve-update", false, "Resolve a verified persistent container update")
 	flag.Parse()
+	if *resolveUpdate {
+		path, err := releaseupdate.Resolve(os.Getenv("UPDATE_STORAGE_DIR"), Version)
+		if err != nil {
+			log.Printf("Ignoring unavailable update; using image binary: %v", err)
+		}
+		if path == "" {
+			path, err = os.Executable()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		fmt.Println(path)
+		return
+	}
 
 	if *showVersion {
 		log.Printf("Sub2API %s (commit: %s, built: %s)\n", Version, Commit, Date)

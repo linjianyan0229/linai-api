@@ -95,12 +95,16 @@ def generate_config(args):
         data['before'] = {'hooks': []}
         data['builds'] = [{'id': 'sub2api', 'skip': True}]
         data['archives'] = []
-        extra = [{'glob': 'release-input/sub2api_*.tar.gz'}, {'glob': 'release-input/sub2api_*.zip'}]
-        if args.simple:
-            data['checksum'] = {'disable': True}
-        else:
-            data['release']['extra_files'] = extra
-            data['checksum'] = {'name_template': 'checksums.txt', 'algorithm': 'sha256', 'extra_files': extra}
+        extra = [{'glob': 'release-input/sub2api_*.tar.gz'}]
+        if not args.simple:
+            extra.append({'glob': 'release-input/sub2api_*.zip'})
+        # Even the single-architecture release needs a verified package for the
+        # application's optional online updater.
+        data['release']['skip_upload'] = False
+        data['release']['extra_files'] = extra + [{'glob': '.release-context/checksums.txt'}]
+        # The combined file is generated from the verified target archives in
+        # contexts(), with public asset basenames rather than local input paths.
+        data['checksum'] = {'disable': True}
     Path(args.output).write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
 
 
@@ -136,6 +140,13 @@ def verify(args):
 
 def contexts(args):
     verify(args)
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for target in targets(args.simple):
+        name = archive_name(args.version, target)
+        entries.append(f'{sha256(Path(args.input) / name)}  {name}\n')
+    (output / 'checksums.txt').write_text(''.join(entries))
     for target in targets(args.simple):
         if target['goos'] != 'linux':
             continue

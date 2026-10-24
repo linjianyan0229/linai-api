@@ -1,4 +1,16 @@
 export default {
+  version: {
+    title: 'Versions and updates', current: 'Current version', available: 'An update is available', check: 'Check for updates', checking: 'Checking…',
+    latest: 'No newer stable release found', select: 'Select a release', releasePage: 'Release page', noNotes: 'No release notes provided.',
+    optional: 'Stable packages come from the GitHub repository above. Installation and restart both require your action.',
+    unsupported: 'Online installation requires a Linux release build. Download from the release page or rebuild your deployment.',
+    noPackage: 'This release has no update package and checksum for this platform. Select another version.',
+    confirm: 'Download and install v{version}? Back up your database and configuration first. A restart is required and briefly interrupts service.',
+    install: 'Download and install', confirmInstall: 'Confirm installation', later: 'Not now', installing: 'Downloading and verifying the package. Keep this page open…',
+    ready: 'v{version} is installed and ready to restart', restartHint: 'The service is still running the previous version. Restart to activate the new application and its built-in pages.',
+    restart: 'Restart with the new version', restarting: 'Restarting and waiting for the new version…', checkFailed: 'Could not check releases. Try again later; no update was installed.',
+    installFailed: 'The update request did not complete. Check your connection and refresh installation status. The download may still be running.', restartTimeout: 'The new version has not been confirmed yet. Check service logs and try again.'
+  },
 
   // Subscription Progress (Header component)
   subscriptionProgress: {

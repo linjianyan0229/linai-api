@@ -244,7 +244,7 @@ fast_mode = true
 #### 安装步骤
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/linjianyan0229/linai-api/main/deploy/install.sh | sudo bash
 ```
 
 脚本会自动：
@@ -274,12 +274,15 @@ sudo systemctl enable sub2api
 
 #### 升级
 
-可以直接在 **管理后台** 左上角点击 **检测更新** 按钮进行在线升级。
+管理员点击左上角版本号打开「版本与更新」，查看 `linjianyan0229/linai-api` 的 GitHub Releases、选择正式版本并确认安装，再手动确认重启。应用会提示新版本，不会自动安装或自动重启。
 
 网页升级功能支持：
 - 自动检测新版本
 - 一键下载并应用更新
-- 支持回滚
+- 安装包 SHA256 校验、失败保留旧版本
+- Docker 数据卷持久化更新；原生 Linux 安装保留 `.backup` 程序
+
+首次接入需要先部署带此功能的版本。维护者通过修改 `backend/cmd/server/VERSION` 并推送 `main` 自动打标签、构建及发布；详见 [版本发布与在线更新](docs/RELEASE_UPDATES.md)。
 
 #### 常用命令
 
@@ -294,7 +297,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # 卸载
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -sSL https://raw.githubusercontent.com/linjianyan0229/linai-api/main/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -317,7 +320,7 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # 下载并运行部署准备脚本
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/linjianyan0229/linai-api/main/deploy/docker-deploy.sh | bash
 
 # 启动服务
 docker compose up -d
