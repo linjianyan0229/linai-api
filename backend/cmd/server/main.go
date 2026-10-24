@@ -55,9 +55,6 @@ func init() {
 // initLogger configures the default slog handler based on gin.Mode().
 // In non-release mode, Debug level logs are enabled.
 func main() {
-	logger.InitBootstrap()
-	defer logger.Sync()
-
 	// Parse command line flags
 	setupMode := flag.Bool("setup", false, "Run setup wizard in CLI mode")
 	showVersion := flag.Bool("version", false, "Show version information")
@@ -66,7 +63,7 @@ func main() {
 	if *resolveUpdate {
 		path, err := releaseupdate.Resolve(os.Getenv("UPDATE_STORAGE_DIR"), Version)
 		if err != nil {
-			log.Printf("Ignoring unavailable update; using image binary: %v", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Ignoring unavailable update; using image binary: %v\n", err)
 		}
 		if path == "" {
 			path, err = os.Executable()
@@ -77,6 +74,11 @@ func main() {
 		fmt.Println(path)
 		return
 	}
+	// The resolver's stdout is a machine-readable executable path. Initialize
+	// application logging only after it exits so fallback diagnostics cannot
+	// become part of the path captured by the container launcher.
+	logger.InitBootstrap()
+	defer logger.Sync()
 
 	if *showVersion {
 		log.Printf("Sub2API %s (commit: %s, built: %s)\n", Version, Commit, Date)

@@ -67,7 +67,7 @@ release:
   draft: false
   prerelease: auto
   name_template: "LinAI API {{.Version}} (Simple)"
-  # 跳过上传二进制包
+  # 分片构建流程提供安装包，并与校验文件一起上传
   skip_upload: false
   header: |
     > AI API Gateway Platform - 将 AI 订阅配额分发和管理
