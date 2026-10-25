@@ -129,13 +129,18 @@ body.liquid-app.liquid-app :is(.card, .card-glass, .glass-card, .liquid-content)
 /* Control grouping is transparent: each control has one material surface. */
 .liquid-layout .liquid-dashboard .dashboard-controls.card {
   position: sticky;
-  top: 88px;
+  top: var(--app-header-clearance, 88px);
   z-index: 20;
   padding: 4px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+@media (max-width: 1279px) {
+  .liquid-layout:has(.header-with-announcements) {
+    --app-header-clearance: 124px;
+  }
 }
 .liquid-layout .dashboard-controls :is(.date-picker-trigger, .select-trigger, .btn),
 .liquid-layout .dashboard-actions button {

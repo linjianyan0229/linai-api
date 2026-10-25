@@ -61,6 +61,9 @@ export default {
   announcements: {
     title: 'Announcements',
     description: 'View system announcements',
+    expandAnnouncement: 'Expand announcement: {title}',
+    pauseRotation: 'Pause announcements',
+    resumeRotation: 'Resume announcements',
     unreadOnly: 'Show unread only',
     markRead: 'Mark as read',
     markAllRead: 'Mark all as read',

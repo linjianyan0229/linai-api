@@ -260,6 +260,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useAnnouncementStore } from '@/stores/announcements'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
@@ -282,6 +283,7 @@ import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const announcementStore = useAnnouncementStore()
 
 const announcements = ref<Announcement[]>([])
 const loading = ref(false)
@@ -556,7 +558,7 @@ async function handleSave() {
       await adminAPI.announcements.create(payload)
       appStore.showSuccess(t('common.success'))
       showEditDialog.value = false
-      await loadAnnouncements()
+      await Promise.all([loadAnnouncements(), announcementStore.fetchAnnouncements(true)])
       return
     }
 
@@ -566,7 +568,7 @@ async function handleSave() {
     appStore.showSuccess(t('common.success'))
     showEditDialog.value = false
     editingAnnouncement.value = null
-    await loadAnnouncements()
+    await Promise.all([loadAnnouncements(), announcementStore.fetchAnnouncements(true)])
   } catch (error: any) {
     console.error('Failed to save announcement:', error)
     appStore.showError(error.response?.data?.detail || (editingAnnouncement.value ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
@@ -592,7 +594,7 @@ async function confirmDelete() {
     appStore.showSuccess(t('common.success'))
     showDeleteDialog.value = false
     deletingAnnouncement.value = null
-    await loadAnnouncements()
+    await Promise.all([loadAnnouncements(), announcementStore.fetchAnnouncements(true)])
   } catch (error: any) {
     console.error('Failed to delete announcement:', error)
     appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToDelete'))

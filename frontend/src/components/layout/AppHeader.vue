@@ -1,6 +1,9 @@
 <template>
-  <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50">
-    <div class="flex h-16 items-center justify-between gap-2 px-2 sm:px-4 md:px-6">
+  <header
+    class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50"
+    :class="{ 'header-with-announcements': hasAnnouncements }"
+  >
+    <div class="header-toolbar grid min-h-16 items-center gap-x-2 px-2 sm:px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
         <button
@@ -21,11 +24,10 @@
         </div>
       </div>
 
-      <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
-      <div class="flex min-w-0 items-center gap-1 sm:gap-3">
-        <!-- Announcement Bell -->
-        <AnnouncementBell v-if="user" />
+      <AnnouncementBell v-if="user" />
 
+      <!-- Right: Docs + Language + Subscriptions + Balance + User Dropdown -->
+      <div class="header-actions flex min-w-0 items-center justify-end gap-1 sm:gap-3">
         <!-- Docs Link -->
         <a
           v-if="docUrl"
@@ -244,7 +246,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAppStore, useAuthStore } from '@/stores'
+import { useAppStore, useAuthStore, useAnnouncementStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
@@ -260,9 +262,11 @@ const route = useRoute()
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const announcementStore = useAnnouncementStore()
 const adminSettingsStore = useAdminSettingsStore()
 
 const user = computed(() => authStore.user)
+const hasAnnouncements = computed(() => !!user.value && announcementStore.announcements.length > 0)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
@@ -372,6 +376,33 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.header-toolbar {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+
+.header-actions > * {
+  flex-shrink: 0;
+}
+
+.announcement-control {
+  max-width: 26rem;
+  justify-self: end;
+}
+
+@media (max-width: 1279px) {
+  .header-with-announcements .header-toolbar {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    row-gap: 6px;
+    padding-block: 10px;
+  }
+
+  .header-with-announcements .announcement-control {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: none;
+  }
+}
+
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;

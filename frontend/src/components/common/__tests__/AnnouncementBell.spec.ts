@@ -19,6 +19,20 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); document.body.style.overflow = '' })
 
 describe('announcement read confirmation', () => {
+  it('expands the rotating notice directly into its full detail', async () => {
+    markRead.mockResolvedValue(undefined)
+    const wrapper = mount(AnnouncementBell, { global: { stubs: { Teleport: true, Transition: true, Icon: true } } })
+    await wrapper.get('[data-testid="announcement-ticker-open"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('Notice')
+    expect(wrapper.get('.markdown-body').text()).toBe('Details')
+    expect(markRead).toHaveBeenCalledWith(1)
+    expect(useAnnouncementStore().unreadCount).toBe(0)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
   it('keeps a failed read confirmation open and only reports success after retry', async () => {
     markRead.mockRejectedValue(new Error('offline'))
     const wrapper = mount(AnnouncementBell, { global: { stubs: { Teleport: true, Transition: true, Icon: true } } })

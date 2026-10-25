@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div class="announcement-control flex min-w-0 items-center gap-1.5" :class="{ 'w-full': announcements.length > 0 }">
     <!-- 铃铛按钮 -->
     <button
       @click="openModal"
-      class="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 transition-all hover:bg-gray-100 hover:scale-105 dark:text-gray-400 dark:hover:bg-dark-800"
+      class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-all hover:bg-gray-100 hover:scale-105 dark:text-gray-400 dark:hover:bg-dark-800"
       :class="{ 'text-blue-600 dark:text-blue-400': unreadCount > 0 }"
       :aria-label="t('announcements.title')"
     >
@@ -17,6 +17,13 @@
         <span class="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
       </span>
     </button>
+
+    <AnnouncementTicker
+      :announcements="announcements"
+      :paused="isModalOpen || detailModalOpen || !!announcementStore.currentPopup"
+      class="min-w-0 flex-1"
+      @open="openDetail"
+    />
 
     <!-- 公告列表 Modal -->
     <Teleport to="body">
@@ -188,6 +195,9 @@
         >
           <div
             class="liquid-dialog w-full max-w-[780px] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="selectedAnnouncement.title"
             @click.stop
           >
             <!-- Header with Decorative Elements -->
@@ -322,6 +332,7 @@ import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeTime, formatRelativeWithDateTime } from '@/utils/format'
 import type { UserAnnouncement } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
+import AnnouncementTicker from './AnnouncementTicker.vue'
 import '@/styles/announcement-markdown.css'
 
 const { t } = useI18n()

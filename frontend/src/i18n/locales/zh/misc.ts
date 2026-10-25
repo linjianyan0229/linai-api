@@ -60,6 +60,9 @@ export default {
   announcements: {
     title: '公告',
     description: '查看系统公告',
+    expandAnnouncement: '展开公告：{title}',
+    pauseRotation: '暂停公告轮播',
+    resumeRotation: '继续公告轮播',
     unreadOnly: '仅显示未读',
     markRead: '标记已读',
     markAllRead: '全部已读',
