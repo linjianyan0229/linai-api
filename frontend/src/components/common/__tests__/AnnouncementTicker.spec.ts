@@ -13,7 +13,7 @@ const notice = (id: number): UserAnnouncement => ({
 
 const mountTicker = (announcements = [notice(1), notice(2), notice(3)]) => mount(AnnouncementTicker, {
   props: { announcements, paused: false },
-  global: { stubs: { Icon: true, Transition: true } },
+  global: { stubs: { Transition: true } },
 })
 
 enableAutoUnmount(afterEach)
@@ -63,12 +63,8 @@ describe('announcement ticker', () => {
     expect(wrapper.text()).toContain('Notice 2')
   })
 
-  it('allows a persistent pause and stops rotating in a background tab', async () => {
+  it('stops rotating in a background tab and resumes when visible', async () => {
     const wrapper = mountTicker()
-    await wrapper.get('.announcement-ticker-pause').trigger('click')
-    await vi.advanceTimersByTimeAsync(10000)
-    expect(wrapper.text()).toContain('Notice 1')
-    await wrapper.get('.announcement-ticker-pause').trigger('click')
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     document.dispatchEvent(new Event('visibilitychange'))
     await nextTick()
@@ -91,7 +87,6 @@ describe('announcement ticker', () => {
     await nextTick()
     await vi.advanceTimersByTimeAsync(10000)
     expect(wrapper.text()).toContain('Notice 1')
-    expect(wrapper.get('.announcement-ticker-pause').attributes('aria-pressed')).toBe('true')
   })
 
   it('opens the displayed notice and resets safely when the list changes', async () => {
@@ -102,7 +97,6 @@ describe('announcement ticker', () => {
     expect(wrapper.emitted('open')?.[0]).toEqual([notice(3)])
     await wrapper.setProps({ announcements: [notice(4)] })
     expect(wrapper.text()).toContain('Notice 4')
-    expect(wrapper.find('.announcement-ticker-pause').exists()).toBe(false)
     await vi.advanceTimersByTimeAsync(10000)
     expect(wrapper.text()).toContain('Notice 4')
     await wrapper.setProps({ announcements: [] })

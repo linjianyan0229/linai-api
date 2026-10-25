@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="currentAnnouncement"
-    class="announcement-ticker flex min-w-0 items-center gap-1"
+    class="announcement-ticker flex min-w-0 items-center"
     @mouseenter="hovered = true"
     @mouseleave="hovered = false"
     @focusin="focused = true"
@@ -30,20 +30,6 @@
       <span v-if="announcements.length > 1" class="hidden shrink-0 text-[10px] tabular-nums opacity-50 sm:inline" aria-hidden="true">
         {{ currentIndex + 1 }}/{{ announcements.length }}
       </span>
-      <Icon name="chevronRight" size="xs" class="shrink-0 opacity-50" aria-hidden="true" />
-    </button>
-    <button
-      v-if="announcements.length > 1"
-      type="button"
-      class="announcement-ticker-pause mr-1 flex h-7 w-7 shrink-0 items-center justify-center"
-      :aria-label="userPaused ? t('announcements.resumeRotation') : t('announcements.pauseRotation')"
-      :aria-pressed="userPaused"
-      @click="userPaused = !userPaused"
-    >
-      <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-        <path v-if="userPaused" d="M5 3.5a.5.5 0 0 1 .77-.42l7 4.5a.5.5 0 0 1 0 .84l-7 4.5a.5.5 0 0 1-.77-.42z" />
-        <path v-else d="M4 3h3v10H4zm5 0h3v10H9z" />
-      </svg>
     </button>
   </div>
 </template>
@@ -52,7 +38,6 @@
 import { computed, ref, watch } from 'vue'
 import { useDocumentVisibility, useIntervalFn, usePreferredReducedMotion } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
 import type { UserAnnouncement } from '@/types'
 
 const props = defineProps<{
@@ -64,14 +49,9 @@ const { t } = useI18n()
 const currentIndex = ref(0)
 const hovered = ref(false)
 const focused = ref(false)
-const userPaused = ref(false)
 const visibility = useDocumentVisibility()
 const reducedMotion = usePreferredReducedMotion()
 const currentAnnouncement = computed(() => props.announcements[currentIndex.value])
-
-watch(reducedMotion, (preference) => {
-  if (preference === 'reduce') userPaused.value = true
-}, { immediate: true })
 
 // Keep the displayed item when read state or titles change; restart for a new list.
 watch(() => props.announcements.map(item => item.id).join(','), () => {
@@ -84,7 +64,7 @@ const { pause, resume } = useIntervalFn(() => {
 
 watch(
   () => props.announcements.length > 1 && !props.paused && !hovered.value
-    && !focused.value && !userPaused.value && visibility.value === 'visible',
+    && !focused.value && reducedMotion.value !== 'reduce' && visibility.value === 'visible',
   (rotate) => rotate ? resume() : pause(),
   { immediate: true },
 )
@@ -102,16 +82,6 @@ function handleFocusOut(event: FocusEvent) {
   border-radius: 16px;
   background: var(--liquid-surface, rgb(128 128 128 / 6%));
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
-}
-
-.announcement-ticker-pause {
-  opacity: 0.45;
-}
-
-.announcement-ticker-pause:hover,
-.announcement-ticker-pause:focus-visible {
-  background: rgb(128 128 128 / 12%);
-  opacity: 1;
 }
 
 .announcement-roll-enter-active,
