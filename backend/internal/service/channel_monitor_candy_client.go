@@ -118,7 +118,7 @@ func (c *monitorCandyClient) Check(ctx context.Context, m *ChannelMonitor, attem
 			return
 		}
 		if resp, err := c.http.Do(req); err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}()
 	for {
@@ -175,18 +175,18 @@ func (c *monitorCandyClient) request(ctx context.Context, method, path string, b
 			} else if date, err := http.ParseTime(resp.Header.Get("Retry-After")); err == nil && date.After(time.Now()) {
 				delay = time.Until(date)
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if err := candyWait(ctx, delay); err != nil {
 				return nil, err
 			}
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("candy API returned HTTP %d", resp.StatusCode)
 		}
 		data, err := io.ReadAll(io.LimitReader(resp.Body, (2<<20)+1))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil || len(data) > 2<<20 {
 			return nil, fmt.Errorf("candy API response could not be read")
 		}

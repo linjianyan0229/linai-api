@@ -189,7 +189,7 @@ func (s *ReleaseUpdateService) Install(ctx context.Context, version string) erro
 	if err != nil {
 		return ErrReleaseInstallFailed.WithCause(err)
 	}
-	defer os.RemoveAll(stage)
+	defer func() { _ = os.RemoveAll(stage) }()
 	packagePath := filepath.Join(stage, "release.tar.gz")
 	if err := s.client.DownloadFile(ctx, archive.BrowserDownloadURL, packagePath, 256<<20); err != nil {
 		return ErrReleaseInstallFailed.WithCause(err)
@@ -248,7 +248,7 @@ func copyReleaseBackup(source, destination string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err

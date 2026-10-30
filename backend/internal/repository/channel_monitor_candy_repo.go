@@ -63,7 +63,7 @@ func (r *channelMonitorCandyRepository) ListStates(ctx context.Context, ids []in
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		state := &service.MonitorCandyState{}
 		var history []byte

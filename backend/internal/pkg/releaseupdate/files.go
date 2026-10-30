@@ -49,7 +49,7 @@ func Digest(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, f); err != nil {
 		return "", err
@@ -62,7 +62,7 @@ func ValidateBinary(path, arch string) error {
 	if err != nil {
 		return fmt.Errorf("release executable is not a Linux ELF binary: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	wanted := map[string]elf.Machine{"amd64": elf.EM_X86_64, "arm64": elf.EM_AARCH64}
 	if f.Class != elf.ELFCLASS64 || wanted[arch] == 0 || f.Machine != wanted[arch] || (f.Type != elf.ET_EXEC && f.Type != elf.ET_DYN) {
 		return fmt.Errorf("release executable does not match the current platform")
@@ -77,12 +77,12 @@ func ExtractBinary(archive, destination string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	reader := tar.NewReader(io.LimitReader(gz, MaxBinarySize+(32<<20)))
 	found := false
 	for {
@@ -122,7 +122,7 @@ func ReadState(directory string) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var state State
 	if err := json.NewDecoder(io.LimitReader(f, 4096)).Decode(&state); err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func Activate(directory, binary, version, repository string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	_, writeErr := file.Write(data)
 	syncErr := file.Sync()
 	closeErr := file.Close()
