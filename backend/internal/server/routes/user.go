@@ -40,6 +40,14 @@ func RegisterUserRoutes(
 			user.PUT("", h.User.UpdateProfile)
 			user.GET("/aff", h.User.GetAffiliate)
 			user.POST("/aff/transfer", h.User.TransferAffiliateQuota)
+			if h.AffiliateCash != nil {
+				cash := user.Group("/aff/withdrawals")
+				cash.GET("/summary", h.AffiliateCash.Summary)
+				cash.GET("", h.AffiliateCash.ListUser)
+				cash.POST("", h.AffiliateCash.Apply)
+				cash.GET("/:id", h.AffiliateCash.GetUser)
+				cash.GET("/:id/payment-qr", h.AffiliateCash.QRUser)
+			}
 			user.POST("/account-bindings/email/send-code", h.User.SendEmailBindingCode)
 			user.POST("/account-bindings/email", h.User.BindEmailIdentity)
 			user.DELETE("/account-bindings/:provider", h.User.UnbindIdentity)

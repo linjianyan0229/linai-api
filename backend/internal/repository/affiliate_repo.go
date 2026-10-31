@@ -42,7 +42,7 @@ LEFT JOIN (
     GROUP BY user_id
 ) rebated ON rebated.user_id = ua.user_id
 LEFT JOIN (
-    SELECT user_id, COALESCE(SUM(amount), 0)::double precision AS matured_frozen_quota
+    SELECT user_id, COALESCE(SUM(remaining_amount), 0)::double precision AS matured_frozen_quota
     FROM user_affiliate_ledger
     WHERE action = 'accrue' AND frozen_until IS NOT NULL AND frozen_until <= NOW()
     GROUP BY user_id
@@ -140,15 +140,15 @@ func (r *affiliateRepository) AccrueQuota(ctx context.Context, inviterID, invite
 
 		if freezeHours > 0 {
 			if _, err = txClient.ExecContext(txCtx, `
-INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_order_id, frozen_until, created_at, updated_at)
-VALUES ($1, 'accrue', $2, $3, $4, NOW() + make_interval(hours => $5), NOW(), NOW())`,
+INSERT INTO user_affiliate_ledger (user_id, action, amount, remaining_amount, source_user_id, source_order_id, frozen_until, created_at, updated_at)
+VALUES ($1, 'accrue', $2, $2, $3, $4, NOW() + make_interval(hours => $5), NOW(), NOW())`,
 				inviterID, amount, inviteeUserID, nullableInt64Arg(sourceOrderID), freezeHours); err != nil {
 				return fmt.Errorf("insert affiliate accrue ledger: %w", err)
 			}
 		} else {
 			if _, err = txClient.ExecContext(txCtx, `
-INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_order_id, created_at, updated_at)
-VALUES ($1, 'accrue', $2, $3, $4, NOW(), NOW())`, inviterID, amount, inviteeUserID, nullableInt64Arg(sourceOrderID)); err != nil {
+INSERT INTO user_affiliate_ledger (user_id, action, amount, remaining_amount, source_user_id, source_order_id, created_at, updated_at)
+VALUES ($1, 'accrue', $2, $2, $3, $4, NOW(), NOW())`, inviterID, amount, inviteeUserID, nullableInt64Arg(sourceOrderID)); err != nil {
 				return fmt.Errorf("insert affiliate accrue ledger: %w", err)
 			}
 		}
@@ -192,6 +192,11 @@ func (r *affiliateRepository) ThawFrozenQuota(ctx context.Context, userID int64)
 
 // thawFrozenQuotaTx moves matured frozen quota to available quota within an existing tx.
 func thawFrozenQuotaTx(txCtx context.Context, txClient *dbent.Client, userID int64) (float64, error) {
+	// All quota mutations lock the profile before its credits, including cash
+	// reservations. A consistent order also prevents thaw/accrual deadlocks.
+	if err := lockAffiliateProfile(txCtx, txClient, userID); err != nil {
+		return 0, err
+	}
 	rows, err := txClient.QueryContext(txCtx, `
 WITH matured AS (
     UPDATE user_affiliate_ledger
@@ -199,7 +204,7 @@ WITH matured AS (
     WHERE user_id = $1
       AND frozen_until IS NOT NULL
       AND frozen_until <= NOW()
-    RETURNING amount
+    RETURNING remaining_amount AS amount
 )
 SELECT COALESCE(SUM(amount), 0) FROM matured`, userID)
 	if err != nil {
@@ -284,6 +289,9 @@ FROM cleared`, userID)
 		}
 		if transferred <= 0 {
 			return service.ErrAffiliateQuotaEmpty
+		}
+		if _, err := txClient.ExecContext(txCtx, `UPDATE user_affiliate_ledger SET remaining_amount=0,updated_at=NOW() WHERE user_id=$1 AND action='accrue' AND frozen_until IS NULL AND remaining_amount>0`, userID); err != nil {
+			return err
 		}
 
 		affected, err := txClient.User.Update().
@@ -388,6 +396,9 @@ WHERE user_id = $2
 		}
 		if affected == 0 {
 			return service.ErrAffiliateQuotaInsufficient
+		}
+		if err := consumeAffiliateCredits(txCtx, txClient, userID, amount); err != nil {
+			return err
 		}
 
 		snapshot, err := queryAffiliateTransferSnapshot(txCtx, txClient, userID)

@@ -104,6 +104,8 @@
           </p>
         </div>
 
+        <AffiliateCashPanel ref="cashPanel" @changed="loadAffiliateDetail(true)" />
+
         <div class="card p-6">
           <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.invitees.title') }}</h3>
           <div v-if="detail.invitees.length === 0" class="mt-4 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-dark-400">
@@ -144,6 +146,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AffiliateCashPanel from '@/components/affiliate/AffiliateCashPanel.vue'
 import userAPI from '@/api/user'
 import type { UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
@@ -160,6 +163,7 @@ const { copyToClipboard } = useClipboard()
 const loading = ref(true)
 const transferring = ref(false)
 const detail = ref<UserAffiliateDetail | null>(null)
+const cashPanel = ref<InstanceType<typeof AffiliateCashPanel> | null>(null)
 
 const inviteLink = computed(() => {
   if (!detail.value) return ''
@@ -212,6 +216,7 @@ async function transferQuota(): Promise<void> {
     appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
     await Promise.all([
       loadAffiliateDetail(true),
+      cashPanel.value?.refresh(),
       authStore.refreshUser().catch(() => undefined),
     ])
   } catch (error) {

@@ -530,8 +530,8 @@ func TestAffiliateRepository_WithdrawQuota_ThawsMaturedQuotaFirst(t *testing.T) 
 	u := mustCreateAffiliateWithdrawUser(t, client, "thaw")
 	mustSeedAffiliateQuota(t, txCtx, client, u.ID, 0, 10, 10)
 	_, err := client.ExecContext(txCtx, `
-INSERT INTO user_affiliate_ledger (user_id, action, amount, frozen_until, created_at, updated_at)
-VALUES ($1, 'accrue', 10, NOW() - INTERVAL '1 hour', NOW(), NOW())`, u.ID)
+INSERT INTO user_affiliate_ledger (user_id, action, amount, remaining_amount, frozen_until, created_at, updated_at)
+VALUES ($1, 'accrue', 10, 10, NOW() - INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	require.NoError(t, err)
 
 	result, err := repo.WithdrawQuota(txCtx, u.ID, 10, newAffiliateWithdrawOperationID("thaw"))
@@ -553,8 +553,8 @@ func TestAffiliateRepository_WithdrawQuota_InsufficientLeavesQuotaUntouched(t *t
 
 	u := mustCreateCommittedAffiliateWithdrawUser(t, "insufficient", 5, 10, 15)
 	_, err := integrationDB.ExecContext(ctx, `
-INSERT INTO user_affiliate_ledger (user_id, action, amount, frozen_until, created_at, updated_at)
-VALUES ($1, 'accrue', 10, NOW() + INTERVAL '1 hour', NOW(), NOW())`, u.ID)
+INSERT INTO user_affiliate_ledger (user_id, action, amount, remaining_amount, frozen_until, created_at, updated_at)
+VALUES ($1, 'accrue', 10, 10, NOW() + INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	require.NoError(t, err)
 	operationID := newAffiliateWithdrawOperationID("insufficient")
 

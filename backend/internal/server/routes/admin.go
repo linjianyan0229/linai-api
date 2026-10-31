@@ -811,6 +811,14 @@ func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers, s
 func registerAffiliateRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	affiliates := admin.Group("/affiliates")
 	{
+		if h.AffiliateCash != nil {
+			cash := affiliates.Group("/withdrawals")
+			cash.GET("", h.AffiliateCash.ListAdmin)
+			cash.GET("/:id", h.AffiliateCash.GetAdmin)
+			cash.GET("/:id/payment-qr", h.AffiliateCash.QRAdmin)
+			cash.POST("/:id/replies", h.AffiliateCash.Reply)
+			cash.POST("/:id/replies/:reply_id/retry", h.AffiliateCash.RetryReply)
+		}
 		affiliates.GET("/invites", h.Admin.Affiliate.ListInviteRecords)
 		affiliates.GET("/rebates", h.Admin.Affiliate.ListRebateRecords)
 		affiliates.GET("/transfers", h.Admin.Affiliate.ListTransferRecords)

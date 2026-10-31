@@ -1,6 +1,10 @@
 <template>
   <AppLayout>
-    <div class="space-y-4">
+    <nav v-liquid-pill class="mb-5 inline-flex max-w-full gap-1 rounded-2xl border border-gray-200 p-1 dark:border-dark-700" role="tablist" :aria-label="t('affiliate.cash.ordersTab')">
+      <button v-for="tab in tabs" :id="`order-tab-${tab}`" :key="tab" role="tab" data-liquid-option :aria-selected="activeTab === tab" :aria-controls="`order-panel-${tab}`" :tabindex="activeTab === tab ? 0 : -1" class="rounded-xl px-5 py-2.5 text-sm font-medium" :class="activeTab === tab ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' : 'text-gray-500'" @click="activeTab = tab" @keydown.right.prevent="switchTab" @keydown.left.prevent="switchTab">{{ t(tab === 'orders' ? 'affiliate.cash.ordersTab' : 'affiliate.cash.adminTitle') }}</button>
+    </nav>
+    <div v-if="activeTab === 'withdrawals'" id="order-panel-withdrawals" role="tabpanel" aria-labelledby="order-tab-withdrawals"><AffiliateCashApplications admin /></div>
+    <div v-show="activeTab === 'orders'" id="order-panel-orders" role="tabpanel" aria-labelledby="order-tab-orders" class="space-y-4">
       <!-- Filters -->
       <div class="card p-4">
         <div class="flex flex-wrap items-center gap-3">
@@ -116,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -132,6 +136,7 @@ import AdminRefundDialog from '@/components/admin/payment/AdminRefundDialog.vue'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
 import { currencySymbol } from '@/components/payment/currency'
+import AffiliateCashApplications from '@/components/affiliate/AffiliateCashApplications.vue'
 
 interface AuditLog {
   id: number
@@ -143,6 +148,14 @@ interface AuditLog {
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const paymentEnabled = computed(() => appStore.cachedPublicSettings?.payment_enabled !== false)
+const tabs = computed<('orders' | 'withdrawals')[]>(() => paymentEnabled.value ? ['orders', 'withdrawals'] : ['withdrawals'])
+const activeTab = ref<'orders' | 'withdrawals'>(paymentEnabled.value ? 'orders' : 'withdrawals')
+async function switchTab() {
+  activeTab.value = activeTab.value === 'orders' || !paymentEnabled.value ? 'withdrawals' : 'orders'
+  await nextTick()
+  document.getElementById(`order-tab-${activeTab.value}`)?.focus()
+}
 
 const ordersLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])
@@ -307,5 +320,9 @@ async function handleQueryRefund(order: PaymentOrder) {
 
 function formatDateTime(dateStr: string): string { return formatOrderDateTime(dateStr) }
 
-onMounted(() => loadOrders())
+onMounted(async () => {
+  if (!appStore.publicSettingsLoaded) await appStore.fetchPublicSettings().catch(() => undefined)
+  if (paymentEnabled.value) await loadOrders()
+  else activeTab.value = 'withdrawals'
+})
 </script>
