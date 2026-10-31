@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -97,7 +98,10 @@ func (s *UserLeaderboardService) Get(ctx context.Context, model string) (*UserLe
 		if result.Err != nil {
 			return nil, result.Err
 		}
-		snapshot := result.Val.(UserLeaderboardSnapshot)
+		snapshot, ok := result.Val.(UserLeaderboardSnapshot)
+		if !ok {
+			return nil, fmt.Errorf("invalid leaderboard snapshot result")
+		}
 		snapshot.Items = append([]UserLeaderboardEntry{}, snapshot.Items...)
 		snapshot.Models = append([]string{}, snapshot.Models...)
 		return &snapshot, nil
@@ -128,5 +132,9 @@ func (s *UserLeaderboardService) getModels(ctx context.Context) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	return result.([]string), nil
+	models, ok := result.([]string)
+	if !ok {
+		return nil, fmt.Errorf("invalid leaderboard model result")
+	}
+	return models, nil
 }
