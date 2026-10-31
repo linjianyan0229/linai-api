@@ -261,17 +261,20 @@ func TestAffiliateCashFullMigrationPostgresContract(t *testing.T) {
 	admin, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
 	defer func() { _ = admin.Close() }()
-	schema := fmt.Sprintf("cash_full_%d", time.Now().UnixNano())
-	_, err = admin.ExecContext(ctx, "CREATE SCHEMA "+pq.QuoteIdentifier(schema))
+	// Historical migrations explicitly inspect public. Use an entire disposable
+	// database for this contract, preserving the production schema assumptions.
+	database := fmt.Sprintf("cash_full_%d", time.Now().UnixNano())
+	_, err = admin.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(database))
 	require.NoError(t, err)
 	defer func() {
-		_, err := admin.ExecContext(context.Background(), "DROP SCHEMA "+pq.QuoteIdentifier(schema)+" CASCADE")
+		_, err := admin.ExecContext(context.Background(), "DROP DATABASE "+pq.QuoteIdentifier(database)+" WITH (FORCE)")
 		require.NoError(t, err)
 	}()
 	connection, err := url.Parse(dsn)
 	require.NoError(t, err)
+	connection.Path = "/" + database
 	query := connection.Query()
-	query.Set("search_path", schema)
+	query.Set("search_path", "public")
 	connection.RawQuery = query.Encode()
 	db, err := sql.Open("postgres", connection.String())
 	require.NoError(t, err)

@@ -42,3 +42,6 @@
 24 小时边界、冻结占用、到期后处理、驳回归还、并发申请/转余额/线下提现及发送重试。
 常规集成套件另外通过真实全量迁移后的 schema 验证完整资金流程。
 SMTP 测试仅向本机模拟服务器发信。
+
+`TestAffiliateCashFullMigrationPostgresContract` 需要该专用测试账号具有 `CREATEDB` 权限，
+会创建并清理独立数据库，在 `public` schema 中执行历史迁移，保持与实际部署一致。
