@@ -28,6 +28,20 @@ export async function getProfile(): Promise<User> {
   return data
 }
 
+export interface AnnouncementEmailPreference {
+  enabled: boolean
+  email: string
+  available: boolean
+}
+
+export async function getAnnouncementEmailPreference(): Promise<AnnouncementEmailPreference> {
+  return (await apiClient.get<AnnouncementEmailPreference>('/user/announcement-email')).data
+}
+
+export async function updateAnnouncementEmailPreference(enabled: boolean): Promise<AnnouncementEmailPreference> {
+  return (await apiClient.put<AnnouncementEmailPreference>('/user/announcement-email', { enabled })).data
+}
+
 /**
  * Update current user profile
  * @param profile - Profile data to update

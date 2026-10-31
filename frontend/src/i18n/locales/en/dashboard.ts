@@ -980,6 +980,18 @@ export default {
       deleted: 'Passkey deleted.',
       deleteFailed: 'Failed to delete passkey.'
     },
+    announcementEmail: {
+      title: 'Announcement emails',
+      description: 'Receive new website announcements and updates to published announcements by email.',
+      enabled: 'Receive announcement emails',
+      recipient: 'Send to: {email}',
+      bindEmail: 'Bind a working email address in your account details first.',
+      hint: 'Off by default. Only future announcements visible to you are sent. Past announcements are not replayed. You can turn this off at any time.',
+      loadFailed: 'Failed to load announcement email settings',
+      saveFailed: 'Failed to save announcement email settings',
+      savedEnabled: 'Announcement emails enabled',
+      savedDisabled: 'Announcement emails disabled'
+    },
     balanceNotify: {
       title: 'Balance Low Notification',
       description: 'Send email alert when account balance falls below threshold',

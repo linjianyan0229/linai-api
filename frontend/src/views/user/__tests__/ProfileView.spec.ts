@@ -73,7 +73,7 @@ describe('ProfileView', () => {
     })
   })
 
-  it('renders the simplified single-column profile shell without separate stat cards', async () => {
+  it('groups account and notification settings separately from security in two desktop columns', async () => {
     const wrapper = mount(ProfileView, {
       global: {
         stubs: {
@@ -81,6 +81,7 @@ describe('ProfileView', () => {
           StatCard: { template: '<div class="stat-card" />' },
           ProfileInfoCard: { template: '<div data-testid="profile-info-card" />' },
           ProfileBalanceNotifyCard: { template: '<div data-testid="profile-balance-notify-card" />' },
+          ProfileAnnouncementNotifyCard: { template: '<div data-testid="profile-announcement-notify-card" />' },
           ProfilePasswordForm: { template: '<div data-testid="profile-password-form" />' },
           ProfileTotpCard: { template: '<div data-testid="profile-totp-card" />' },
           Icon: true
@@ -92,8 +93,11 @@ describe('ProfileView', () => {
 
     expect(wrapper.findAll('.stat-card')).toHaveLength(0)
     expect(wrapper.get('[data-testid="profile-shell"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
+    expect(wrapper.get('[data-testid="profile-shell"]').classes()).toContain('lg:grid-cols-2')
+    expect(wrapper.get('[data-testid="profile-account-column"]').find('[data-testid="profile-info-card"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-account-column"]').find('[data-testid="profile-announcement-notify-card"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-security-column"]').find('[data-testid="profile-password-form"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-security-column"]').find('[data-testid="profile-totp-card"]').exists()).toBe(true)
+    wrapper.unmount()
   })
 })

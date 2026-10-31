@@ -984,6 +984,18 @@ export default {
       deleted: 'Passkey 已删除。',
       deleteFailed: '删除 Passkey 失败。'
     },
+    announcementEmail: {
+      title: '公告邮件推送',
+      description: '通过邮箱接收网站新公告和已发布公告的内容更新。',
+      enabled: '接收公告邮件',
+      recipient: '接收邮箱：{email}',
+      bindEmail: '请先在账号资料中绑定可接收邮件的邮箱。',
+      hint: '默认关闭。开启后接收后续生效且对您可见的公告，不补发历史公告；可随时关闭。',
+      loadFailed: '加载公告推送设置失败',
+      saveFailed: '保存公告推送设置失败',
+      savedEnabled: '已开启公告邮件推送',
+      savedDisabled: '已关闭公告邮件推送'
+    },
     balanceNotify: {
       title: '余额不足提醒',
       description: '当账户余额低于阈值时发送邮件提醒',

@@ -881,6 +881,7 @@ var ProviderSet = wire.NewSet(
 	NewBillingService,
 	ProvideBillingCacheService,
 	NewAnnouncementService,
+	ProvideAnnouncementEmailService,
 	NewAdminService,
 	NewGatewayService,
 	NewOpenAIGatewayService,
@@ -1087,6 +1088,12 @@ func ProvideChannelMonitorV2Aggregator(repo ChannelMonitorV2Repository, db *sql.
 	}
 	aggregator.Start()
 	return aggregator
+}
+
+func ProvideAnnouncementEmailService(repo AnnouncementEmailRepository, email *EmailService, settings SettingRepository) *AnnouncementEmailService {
+	svc := NewAnnouncementEmailService(repo, email, settings)
+	svc.Start()
+	return svc
 }
 
 // ProvideClaudeResetCreditService wires the Claude reset query and, with the

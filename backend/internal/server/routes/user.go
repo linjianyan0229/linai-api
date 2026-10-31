@@ -29,6 +29,10 @@ func RegisterUserRoutes(
 		user := authenticated.Group("/user")
 		{
 			user.GET("/profile", h.User.GetProfile)
+			if h.AnnouncementEmail != nil {
+				user.GET("/announcement-email", h.AnnouncementEmail.Get)
+				user.PUT("/announcement-email", h.AnnouncementEmail.Update)
+			}
 			if h.MCPOAuth != nil {
 				user.GET("/mcp/config", h.MCPOAuth.ConnectionConfig)
 				user.GET("/mcp/grants", h.MCPOAuth.ListGrants)
