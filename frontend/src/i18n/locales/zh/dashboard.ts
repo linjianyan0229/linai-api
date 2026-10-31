@@ -1,4 +1,20 @@
 export default {
+  leaderboard: {
+    title: '用户排行榜',
+    description: '按累计 Token 用量展示站点前 20 名用户。选择单个模型后，按该模型的调用用量重新排行。',
+    model: '模型筛选',
+    allModels: '全部模型',
+    rank: '排名',
+    username: '用户名',
+    totalTokens: '总 Token',
+    totalQuota: '总额度（USD）',
+    anonymous: '未设置用户名',
+    updatedAt: '更新于 {time}',
+    empty: '暂无符合条件的调用记录',
+    unavailable: '排行榜暂时无法加载，请点击刷新重试',
+    loadFailed: '加载排行榜失败',
+    rules: '统计现有用量记录，Token 包含输入、输出、缓存创建和缓存读取；额度为累计实际消费金额。仅统计正常用户的有效调用，同 Token 时按额度排序。数据最多缓存 1 分钟。'
+  },
   dashboard: {
     title: '仪表盘',
     welcomeMessage: '欢迎回来！这是您账户的概览。',

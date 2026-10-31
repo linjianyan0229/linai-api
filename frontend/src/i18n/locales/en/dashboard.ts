@@ -1,4 +1,20 @@
 export default {
+  leaderboard: {
+    title: 'User leaderboard',
+    description: 'The top 20 site users by cumulative token usage. Select one model to rerank users by their usage of that model.',
+    model: 'Filter by model',
+    allModels: 'All models',
+    rank: 'Rank',
+    username: 'Username',
+    totalTokens: 'Total tokens',
+    totalQuota: 'Total spend (USD)',
+    anonymous: 'Unnamed user',
+    updatedAt: 'Updated {time}',
+    empty: 'No matching usage records yet',
+    unavailable: 'The leaderboard is unavailable. Refresh to try again.',
+    loadFailed: 'Failed to load leaderboard',
+    rules: 'Based on retained usage records. Tokens include input, output, cache creation and cache reads; spend is the actual cumulative charge. Only active users with valid usage are included. Spend breaks token ties. Results are cached for up to one minute.'
+  },
   dashboard: {
     title: 'Dashboard',
     welcomeMessage: "Welcome back! Here's an overview of your account.",

@@ -115,6 +115,10 @@ func RegisterUserRoutes(
 		}
 
 		// 使用记录（聚合统计属重查询，叠加更严格的按用户限流）
+		if h.UserLeaderboard != nil {
+			authenticated.GET("/leaderboard", panelRateLimiter.Heavy(), h.UserLeaderboard.Get)
+		}
+
 		usage := authenticated.Group("/usage")
 		usage.Use(panelRateLimiter.Heavy())
 		{
