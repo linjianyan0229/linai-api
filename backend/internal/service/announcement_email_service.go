@@ -216,5 +216,7 @@ func (s *AnnouncementEmailService) message(ctx context.Context, task *Announceme
 			break
 		}
 	}
-	return fmt.Sprintf("[%s] %s: %s", name, title, task.Title), notificationEmailCard("#0d9488", title, body), nil
+	layout := notificationEmailCard("#0d9488", title, "{{announcement_body}}")
+	layout = strings.ReplaceAll(layout, "{{site_name}}", html.EscapeString(name))
+	return fmt.Sprintf("[%s] %s: %s", name, title, task.Title), strings.Replace(layout, "{{announcement_body}}", body, 1), nil
 }

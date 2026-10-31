@@ -96,6 +96,8 @@ func TestAnnouncementEmailFiltersAudienceAndEscapesBody(t *testing.T) {
 	require.NotContains(t, sender.body, "<img src=x")
 	require.NotContains(t, sender.body, "<script>")
 	require.Contains(t, sender.body, "https://website.example.test/profile")
+	require.Contains(t, sender.body, "sent by LinAI")
+	require.NotContains(t, sender.body, "{{site_name}}")
 	require.Contains(t, sender.subject, "网站公告更新")
 	sender.err = errors.New("test SMTP failure")
 	svc.deliver(context.Background(), task)
