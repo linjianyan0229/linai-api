@@ -84,7 +84,13 @@ function refreshSummary(): Promise<void> {
   })()
   return summaryRequest
 }
-async function refresh() { await refreshSummary(); refreshKey.value++ }
+async function refresh() {
+  // A read started before a mutation may contain the old quota. Let it finish
+  // before requesting a fresh snapshot after a successful application/transfer.
+  if (summaryRequest) await summaryRequest
+  await refreshSummary()
+  refreshKey.value++
+}
 function clearPreview() { if (qrPreview.value) URL.revokeObjectURL(qrPreview.value); qrPreview.value = '' }
 function openForm() {
   email.value = authStore.user?.email || ''; amount.value = ''; qr.value = null; clearPreview()

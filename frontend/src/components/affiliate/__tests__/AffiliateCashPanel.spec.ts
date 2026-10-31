@@ -53,6 +53,21 @@ describe('cash application', () => {
     await wrapper.get('form').trigger('submit'); await flushPromises()
     expect(mocks.apply.mock.calls.map(call => call[3])).toEqual(['first-request-key', 'first-request-key'])
   })
+  it('requests a fresh quota snapshot after submission even when an older read is in flight', async () => {
+    const wrapper = await setup(); await wrapper.get('button').trigger('click')
+    await wrapper.get('[data-testid="cash-amount"]').setValue('1'); await file(wrapper)
+    let resolveOlder!: (value: unknown) => void
+    const older = new Promise(resolve => { resolveOlder = resolve })
+    mocks.summary.mockReturnValueOnce(older)
+    const pendingRead = (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
+    await wrapper.get('form').trigger('submit'); await flushPromises()
+    mocks.summary.mockResolvedValue({ eligible_amount: '4.00000001', pending_amount: '3', next_expires_at: null, server_time: new Date().toISOString() })
+    resolveOlder({ eligible_amount: '5.00000001', pending_amount: '2', next_expires_at: null, server_time: new Date().toISOString() })
+    await pendingRead; await flushPromises()
+    expect(mocks.summary).toHaveBeenCalledTimes(3)
+    expect(wrapper.text()).toContain('USD 4.00000001')
+    expect(wrapper.emitted('changed')).toHaveLength(1)
+  })
   it('rejects excessive precision and overspending without sending the request', async () => {
     const wrapper = await setup(); await wrapper.get('button').trigger('click'); await file(wrapper)
     for (const value of ['0.000000001', '5.00000002', '1e3', '-1']) {
