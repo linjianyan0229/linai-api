@@ -626,6 +626,10 @@
           />
           <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
         </div>
+        <GroupRechargeRateEditor
+          v-if="!authStore.isSimpleMode && createForm.subscription_type !== 'subscription'"
+          v-model="createForm.recharge_rate_tiers"
+        />
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
@@ -2278,6 +2282,10 @@
             data-tour="group-form-multiplier"
           />
         </div>
+        <GroupRechargeRateEditor
+          v-if="!authStore.isSimpleMode && editForm.subscription_type !== 'subscription'"
+          v-model="editForm.recharge_rate_tiers"
+        />
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
@@ -4328,6 +4336,9 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import { platformLabel } from "@/utils/platformColors";
 import Icon from "@/components/icons/Icon.vue";
 import GroupI18nField from "@/components/admin/group/GroupI18nField.vue";
+import GroupRechargeRateEditor from "@/components/admin/group/GroupRechargeRateEditor.vue";
+import { validGroupRechargeRateTiers } from "@/utils/groupRechargeRates";
+import type { GroupRechargeRateTier } from "@/types";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
@@ -4973,6 +4984,7 @@ const createForm = reactive({
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
@@ -5339,6 +5351,7 @@ const editForm = reactive({
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
   status: "active" as "active" | "inactive",
   subscription_type: "standard" as SubscriptionType,
@@ -5816,6 +5829,7 @@ const closeCreateModal = () => {
   createForm.i18n = {};
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.recharge_rate_tiers = [];
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
   createForm.daily_limit_usd = null;
@@ -5937,6 +5951,10 @@ const handleCreateGroup = async () => {
   ) {
     return;
   }
+  if (createForm.subscription_type !== 'subscription' && !validGroupRechargeRateTiers(createForm.recharge_rate_tiers)) {
+    appStore.showError(t("admin.groups.rechargeRates.invalid"));
+    return;
+  }
   if (!validateProfitControlForm(createForm)) {
     return;
   }
@@ -5961,6 +5979,7 @@ const handleCreateGroup = async () => {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createGroupForm,
+      recharge_rate_tiers: createForm.subscription_type === 'subscription' ? [] : createForm.recharge_rate_tiers,
       force_openai_fast: normalizeGroupOpenAIFast(
         createForm.platform,
         createForm.force_openai_fast,
@@ -6100,6 +6119,7 @@ const handleEdit = async (group: AdminGroup) => {
   );
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.recharge_rate_tiers = (group.recharge_rate_tiers ?? []).map((tier) => ({ ...tier }));
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
   editForm.subscription_type = group.subscription_type || "standard";
@@ -6272,6 +6292,10 @@ const handleUpdateGroup = async () => {
   ) {
     return;
   }
+  if (editForm.subscription_type !== 'subscription' && !validGroupRechargeRateTiers(editForm.recharge_rate_tiers)) {
+    appStore.showError(t("admin.groups.rechargeRates.invalid"));
+    return;
+  }
   if (!validateProfitControlForm(editForm)) {
     return;
   }
@@ -6300,6 +6324,7 @@ const handleUpdateGroup = async () => {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+      recharge_rate_tiers: editForm.subscription_type === 'subscription' ? [] : editForm.recharge_rate_tiers,
       force_openai_fast: normalizeGroupOpenAIFast(
         editForm.platform,
         editForm.force_openai_fast,

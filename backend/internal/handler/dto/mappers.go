@@ -201,6 +201,7 @@ func groupFromServiceBase(g *service.Group) Group {
 		BatchImageHoldMultiplier:        g.BatchImageHoldMultiplier,
 		VideoRateIndependent:            g.VideoRateIndependent,
 		VideoRateMultiplier:             g.VideoRateMultiplier,
+		RechargeRateTiers:               append([]service.GroupRechargeRateTier{}, g.RechargeRateTiers...),
 		PeakRateEnabled:                 g.PeakRateEnabled,
 		PeakStart:                       g.PeakStart,
 		PeakEnd:                         g.PeakEnd,

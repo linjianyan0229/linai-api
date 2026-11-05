@@ -113,6 +113,17 @@ export default {
 
   // Payment System
   payment: {
+    groupRates: {
+      title: 'Recharge levels · Group rates',
+      hint: 'Lifetime recharge principal unlocks lower rates. Spending does not lower your level. Bonuses, redeem codes, affiliate transfers and subscriptions are excluded; settled refunds reduce principal proportionally. Changes apply within 30 seconds.',
+      principal: 'Lifetime recharge principal (USD)',
+      level: 'Level {level}',
+      current: 'Level {level} · Current {rate}×',
+      next: '${amount} more principal to reach the next level',
+      highest: 'Highest recharge level reached',
+      override: 'Your administrator-assigned rate currently takes priority.',
+      loadError: 'Unable to load recharge levels. Please retry.'
+    },
     title: 'Recharge / Subscription',
     amountLabel: 'Amount',
     paymentAmount: 'Payment Amount',

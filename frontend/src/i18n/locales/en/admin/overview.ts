@@ -842,6 +842,15 @@ export default {
 
     // Groups
     groups: {
+      rechargeRates: {
+        title: 'Lifetime recharge rate levels',
+        hint: 'Three levels based on successfully credited recharge principal in USD. Level 1 starts at $0; set the next two thresholds. Disabling restores the default group rate.',
+        level: 'Level {level}',
+        threshold: 'Principal threshold (USD)',
+        rate: 'Level rate',
+        invalid: 'Set three increasing thresholds starting at 0, with up to two decimal places. Rates must decrease within 0.5–1 and have at most four decimal places.',
+        priority: 'Level rates replace the default group rate. Manual user rates take priority. Bonuses, redeem codes, affiliate transfers and subscription payments do not count. Settled refunds reduce principal proportionally. Changes apply within 30 seconds. Independent image/video rates keep their own settings.'
+      },
       title: 'Group Management',
       description: 'Manage API key groups and rate multipliers',
       searchGroups: 'Search groups...',

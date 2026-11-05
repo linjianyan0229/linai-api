@@ -111,6 +111,17 @@ export default {
 
   // Payment System
   payment: {
+    groupRates: {
+      title: '充值等级 · 分组倍率',
+      hint: '累计成功充值本金解锁更低倍率，消费不会降低等级。赠送、兑换码、返利和订阅不计入；退款按比例扣回，到账后 30 秒内生效。',
+      principal: '累计充值本金（USD）',
+      level: '等级 {level}',
+      current: '等级 {level} · 当前 {rate}×',
+      next: '再累计充值 ${amount} 本金可升至下一等级',
+      highest: '已达到最高充值等级',
+      override: '当前按管理员为你设置的专属倍率计费。',
+      loadError: '暂时无法加载充值等级，请重试。'
+    },
     title: '充值/订阅',
     amountLabel: '充值金额',
     paymentAmount: '支付金额',

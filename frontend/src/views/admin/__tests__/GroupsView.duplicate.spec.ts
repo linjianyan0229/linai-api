@@ -377,6 +377,47 @@ describe('GroupsView duplicate action', () => {
     wrapper.unmount()
   })
 
+  it('validates, saves, and disables recharge levels without losing the default rate', async () => {
+    const tiers = [
+      { min_amount: 0, rate_multiplier: 1 },
+      { min_amount: 100, rate_multiplier: 0.75 },
+      { min_amount: 500, rate_multiplier: 0.5 }
+    ]
+    const group = { ...sourceGroup, recharge_rate_tiers: tiers }
+    listGroups.mockResolvedValue({ items: [group], total: 1, page: 1, page_size: 20, pages: 1 })
+    updateGroup.mockResolvedValue(group)
+    const wrapper = mountView()
+    await flushPromises()
+    const edit = () => wrapper.findAll('button').find(button => button.text() === 'common.edit')!.trigger('click')
+    await edit()
+    await flushPromises()
+    expect(wrapper.get<HTMLInputElement>('[data-testid="recharge-threshold-1"]').element.value).toBe('100')
+    await wrapper.get('[data-testid="recharge-threshold-1"]').setValue('600')
+    await wrapper.get('#edit-group-form').trigger('submit')
+    await flushPromises()
+    expect(updateGroup).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('admin.groups.rechargeRates.invalid')
+
+    await wrapper.get('[data-testid="recharge-threshold-1"]').setValue('250')
+    await wrapper.get('#edit-group-form').trigger('submit')
+    await flushPromises()
+    expect(updateGroup).toHaveBeenLastCalledWith(42, expect.objectContaining({
+      rate_multiplier: 1,
+      recharge_rate_tiers: [tiers[0], { min_amount: 250, rate_multiplier: 0.75 }, tiers[2]]
+    }))
+    // Draft edits must not mutate the loaded group or be retained on reopen.
+    expect(group.recharge_rate_tiers[1]?.min_amount).toBe(100)
+    await edit()
+    await flushPromises()
+    await wrapper.get('[data-testid="group-recharge-rate-editor"] [role="switch"]').trigger('click')
+    await wrapper.get('#edit-group-form').trigger('submit')
+    await flushPromises()
+    expect(updateGroup).toHaveBeenLastCalledWith(42, expect.objectContaining({
+      rate_multiplier: 1, recharge_rate_tiers: []
+    }))
+    wrapper.unmount()
+  })
+
   it('updates manifest controls immediately and submits the displayed selection', async () => {
     vi.useFakeTimers()
     vi.mocked(adminAPI.accounts.list).mockResolvedValue({

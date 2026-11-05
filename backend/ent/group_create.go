@@ -112,6 +112,12 @@ func (_c *GroupCreate) SetNillableRateMultiplier(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (_c *GroupCreate) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupCreate {
+	_c.mutation.SetRechargeRateTiers(v)
+	return _c
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_c *GroupCreate) SetPeakRateEnabled(v bool) *GroupCreate {
 	_c.mutation.SetPeakRateEnabled(v)
@@ -1075,6 +1081,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.RechargeRateTiers(); !ok {
+		v := group.DefaultRechargeRateTiers
+		_c.mutation.SetRechargeRateTiers(v)
+	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		v := group.DefaultPeakRateEnabled
 		_c.mutation.SetPeakRateEnabled(v)
@@ -1263,6 +1273,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.RechargeRateTiers(); !ok {
+		return &ValidationError{Name: "recharge_rate_tiers", err: errors.New(`ent: missing required field "Group.recharge_rate_tiers"`)}
 	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`ent: missing required field "Group.peak_rate_enabled"`)}
@@ -1506,6 +1519,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.RechargeRateTiers(); ok {
+		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
+		_node.RechargeRateTiers = value
 	}
 	if value, ok := _c.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
@@ -1994,6 +2011,18 @@ func (u *GroupUpsert) UpdateRateMultiplier() *GroupUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *GroupUpsert) AddRateMultiplier(v float64) *GroupUpsert {
 	u.Add(group.FieldRateMultiplier, v)
+	return u
+}
+
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (u *GroupUpsert) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpsert {
+	u.Set(group.FieldRechargeRateTiers, v)
+	return u
+}
+
+// UpdateRechargeRateTiers sets the "recharge_rate_tiers" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateRechargeRateTiers() *GroupUpsert {
+	u.SetExcluded(group.FieldRechargeRateTiers)
 	return u
 }
 
@@ -3137,6 +3166,20 @@ func (u *GroupUpsertOne) AddRateMultiplier(v float64) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRateMultiplier() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (u *GroupUpsertOne) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRechargeRateTiers(v)
+	})
+}
+
+// UpdateRechargeRateTiers sets the "recharge_rate_tiers" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateRechargeRateTiers() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRechargeRateTiers()
 	})
 }
 
@@ -4611,6 +4654,20 @@ func (u *GroupUpsertBulk) AddRateMultiplier(v float64) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRateMultiplier() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (u *GroupUpsertBulk) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRechargeRateTiers(v)
+	})
+}
+
+// UpdateRechargeRateTiers sets the "recharge_rate_tiers" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateRechargeRateTiers() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRechargeRateTiers()
 	})
 }
 

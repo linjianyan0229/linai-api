@@ -133,22 +133,10 @@ func (r *userGroupRateRepository) GetByGroupID(ctx context.Context, groupID int6
 	return result, nil
 }
 
-// GetByUserAndGroup 获取用户在特定分组的专属 rate_multiplier（NULL 返回 nil）
+// GetByUserAndGroup resolves a manual override, then the earned recharge rate.
+// A nil result means that the caller should use the group's default rate.
 func (r *userGroupRateRepository) GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error) {
-	query := `SELECT rate_multiplier FROM user_group_rate_multipliers WHERE user_id = $1 AND group_id = $2`
-	var rate sql.NullFloat64
-	err := scanSingleRow(ctx, r.sql, query, []any{userID, groupID}, &rate)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !rate.Valid {
-		return nil, nil
-	}
-	v := rate.Float64
-	return &v, nil
+	return r.getEffectiveByUserAndGroup(ctx, userID, groupID)
 }
 
 // GetRPMOverrideByUserAndGroup 获取用户在特定分组的 rpm_override（NULL 返回 nil）

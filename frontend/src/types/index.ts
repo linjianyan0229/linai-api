@@ -575,6 +575,11 @@ export interface GroupLocaleText {
 /** 以语言代码（en、zh…）为键的分组文案译文。 */
 export type GroupI18n = Record<string, GroupLocaleText>
 
+export interface GroupRechargeRateTier {
+  min_amount: number
+  rate_multiplier: number
+}
+
 // 用户侧接口返回的 name / description 已由后端按请求语言（Accept-Language）选好
 export interface Group {
   id: number
@@ -582,6 +587,7 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  recharge_rate_tiers?: GroupRechargeRateTier[]
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
   max_reasoning_effort?: string // Anthropic/OpenAI reasoning ceiling; empty means unlimited
   max_reasoning_effort_over_limit?: string // downgrade (default) or deny when over the ceiling
@@ -870,6 +876,7 @@ export interface CreateGroupRequest {
   require_privacy_set?: boolean
   // 从指定分组复制账号
   copy_accounts_from_group_ids?: number[]
+  recharge_rate_tiers?: GroupRechargeRateTier[]
 }
 
 export interface UpdateGroupRequest {
@@ -937,6 +944,7 @@ export interface UpdateGroupRequest {
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   copy_accounts_from_group_ids?: number[]
+  recharge_rate_tiers?: GroupRechargeRateTier[]
 }
 
 // ==================== Account & Proxy Types ====================

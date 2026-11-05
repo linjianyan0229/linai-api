@@ -356,3 +356,18 @@ func (h *APIKeyHandler) GetUserGroupRates(c *gin.Context) {
 
 	response.Success(c, rates)
 }
+
+// GetRechargeProgress returns only groups available to the authenticated user.
+func (h *APIKeyHandler) GetRechargeProgress(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	result, err := h.apiKeyService.GetRechargeProgress(c.Request.Context(), subject.UserID, c.GetHeader("Accept-Language"))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}

@@ -124,6 +124,18 @@ func (_u *GroupUpdate) AddRateMultiplier(v float64) *GroupUpdate {
 	return _u
 }
 
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (_u *GroupUpdate) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdate {
+	_u.mutation.SetRechargeRateTiers(v)
+	return _u
+}
+
+// AppendRechargeRateTiers appends value to the "recharge_rate_tiers" field.
+func (_u *GroupUpdate) AppendRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdate {
+	_u.mutation.AppendRechargeRateTiers(v)
+	return _u
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_u *GroupUpdate) SetPeakRateEnabled(v bool) *GroupUpdate {
 	_u.mutation.SetPeakRateEnabled(v)
@@ -1610,6 +1622,14 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.RechargeRateTiers(); ok {
+		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedRechargeRateTiers(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldRechargeRateTiers, value)
+		})
+	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
 	}
@@ -2341,6 +2361,18 @@ func (_u *GroupUpdateOne) SetNillableRateMultiplier(v *float64) *GroupUpdateOne 
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *GroupUpdateOne) AddRateMultiplier(v float64) *GroupUpdateOne {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetRechargeRateTiers sets the "recharge_rate_tiers" field.
+func (_u *GroupUpdateOne) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdateOne {
+	_u.mutation.SetRechargeRateTiers(v)
+	return _u
+}
+
+// AppendRechargeRateTiers appends value to the "recharge_rate_tiers" field.
+func (_u *GroupUpdateOne) AppendRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdateOne {
+	_u.mutation.AppendRechargeRateTiers(v)
 	return _u
 }
 
@@ -3859,6 +3891,14 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RechargeRateTiers(); ok {
+		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedRechargeRateTiers(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldRechargeRateTiers, value)
+		})
 	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)

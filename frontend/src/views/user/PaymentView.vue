@@ -39,6 +39,7 @@
           </div>
           <!-- Top-up Tab -->
           <template v-else-if="activeTab === 'recharge'">
+            <GroupRechargeProgress />
             <!-- Recharge Account Card -->
             <div class="card p-5">
               <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
@@ -279,6 +280,7 @@
 </template>
 
 <script setup lang="ts">
+import GroupRechargeProgress from '@/components/payment/GroupRechargeProgress.vue'
 import { vLiquidPill } from '@/directives/liquidPill'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

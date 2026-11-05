@@ -401,6 +401,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
 	}
+	if err := ValidateGroupRechargeRateTiers(input.RechargeRateTiers, input.SubscriptionType); err != nil {
+		return nil, err
+	}
 	i18n, err := normalizeGroupI18n(input.I18n)
 	if err != nil {
 		return nil, err
@@ -581,6 +584,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		I18n:                            i18n,
 		Platform:                        platform,
 		RateMultiplier:                  input.RateMultiplier,
+		RechargeRateTiers:               append([]GroupRechargeRateTier{}, input.RechargeRateTiers...),
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
 		SubscriptionType:                subscriptionType,
@@ -827,6 +831,18 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 订阅相关字段
 	if input.SubscriptionType != "" {
 		group.SubscriptionType = input.SubscriptionType
+	}
+	if input.RechargeRateTiers != nil {
+		group.RechargeRateTiers = append([]GroupRechargeRateTier{}, (*input.RechargeRateTiers)...)
+	}
+	if group.IsSubscriptionType() {
+		if input.RechargeRateTiers != nil && len(*input.RechargeRateTiers) > 0 {
+			return nil, ValidateGroupRechargeRateTiers(*input.RechargeRateTiers, group.SubscriptionType)
+		}
+		group.RechargeRateTiers = []GroupRechargeRateTier{}
+	}
+	if err := ValidateGroupRechargeRateTiers(group.RechargeRateTiers, group.SubscriptionType); err != nil {
+		return nil, err
 	}
 	// 限额字段：nil 表示不修改，负数表示"无限制"，0 表示"不允许用量"，正数表示具体限额。
 	if input.DailyLimitUSD != nil {

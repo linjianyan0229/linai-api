@@ -1128,6 +1128,9 @@ func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (ma
 	if s.userGroupRateRepo == nil {
 		return nil, nil
 	}
+	if repo, ok := s.userGroupRateRepo.(UserGroupRechargeRateRepository); ok {
+		return repo.GetEffectiveByUserID(ctx, userID)
+	}
 	rates, err := s.userGroupRateRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get user group rates: %w", err)

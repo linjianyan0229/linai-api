@@ -19,6 +19,11 @@ type userGroupRateResolver struct {
 }
 
 func newUserGroupRateResolver(repo UserGroupRateRepository, cache *gocache.Cache, cacheTTL time.Duration, sf *singleflight.Group, logComponent string) *userGroupRateResolver {
+	// Recharge/refund eligibility must not remain stale beyond 30 seconds,
+	// including installations with a longer configured override-cache TTL.
+	if _, ok := repo.(UserGroupRechargeRateRepository); ok && cacheTTL > defaultUserGroupRateCacheTTL {
+		cacheTTL = defaultUserGroupRateCacheTTL
+	}
 	if cacheTTL <= 0 {
 		cacheTTL = defaultUserGroupRateCacheTTL
 	}
