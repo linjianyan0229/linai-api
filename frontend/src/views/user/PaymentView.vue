@@ -146,7 +146,7 @@
                   <div>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
                     <div class="flex items-baseline">
-                      <span :class="['text-lg font-bold', planTextClass]">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
+                      <span :class="['text-lg font-bold', planTextClass]">×{{ currentTimeRate(selectedPlan, selectedPlan.rate_multiplier ?? 1) }}</span>
                     </div>
                   </div>
                   <div v-if="planHasPeakRate(selectedPlan)">
@@ -227,7 +227,7 @@
                         <span :class="['shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium', platformBadgeLightClass(sub.group?.platform || '')]">{{ platformLabel(sub.group?.platform || '') }}</span>
                       </div>
                       <div class="flex flex-wrap gap-x-3 text-[11px] text-gray-400 dark:text-gray-500">
-                        <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
+                        <span>{{ t('payment.planCard.rate') }}: ×{{ currentTimeRate(sub.group || {}, sub.group?.rate_multiplier ?? 1) }}</span>
                         <span v-if="subscriptionHasPeakRate(sub)">{{ t('payment.planCard.peakRate') }}: {{ subscriptionPeakRateLabel(sub) }}</span>
                         <span v-if="sub.group?.daily_limit_usd == null && sub.group?.weekly_limit_usd == null && sub.group?.monthly_limit_usd == null">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
                         <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
@@ -296,6 +296,8 @@ import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
+import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
+import { formatGroupTimeRates, type GroupTimeRateFields } from '@/utils/groupTimeRates'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import { formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers, quoteRechargeBonus } from '@/utils/rechargeBonus'
@@ -332,6 +334,7 @@ const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
 const appStore = useAppStore()
+const currentTimeRate = useGroupTimeRate()
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
@@ -341,11 +344,12 @@ function getDaysRemaining(expiresAt: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-function subscriptionHasPeakRate(sub: { group?: PeakRateFields | null }): boolean {
-  return hasPeakRate(sub.group)
+function subscriptionHasPeakRate(sub: { group?: (PeakRateFields & GroupTimeRateFields) | null }): boolean {
+  return sub.group?.time_rate_periods?.length === 2 || hasPeakRate(sub.group)
 }
 
-function subscriptionPeakRateLabel(sub: { group?: PeakRateFields | null }): string {
+function subscriptionPeakRateLabel(sub: { group?: (PeakRateFields & GroupTimeRateFields) | null }): string {
+  if (sub.group?.time_rate_periods?.length === 2) return formatGroupTimeRates(sub.group, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
   return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 
@@ -801,10 +805,11 @@ const planValiditySuffix = computed(() => {
 })
 
 function planHasPeakRate(plan: SubscriptionPlan): boolean {
-  return hasPeakRate(plan)
+  return plan.time_rate_periods?.length === 2 || hasPeakRate(plan)
 }
 
 function planPeakRateLabel(plan: SubscriptionPlan): string {
+  if (plan.time_rate_periods?.length === 2) return formatGroupTimeRates(plan, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
   return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 

@@ -355,6 +355,7 @@ func TestAPIContracts(t *testing.T) {
 						"platform": "anthropic",
 						"rate_multiplier": 1.5,
 						"recharge_rate_tiers": [],
+						"time_rate_periods": [],
 						"peak_rate_enabled": false,
 						"peak_start": "",
 						"peak_end": "",

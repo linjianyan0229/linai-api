@@ -118,6 +118,12 @@ func (_c *GroupCreate) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *G
 	return _c
 }
 
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (_c *GroupCreate) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupCreate {
+	_c.mutation.SetTimeRatePeriods(v)
+	return _c
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_c *GroupCreate) SetPeakRateEnabled(v bool) *GroupCreate {
 	_c.mutation.SetPeakRateEnabled(v)
@@ -1085,6 +1091,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRechargeRateTiers
 		_c.mutation.SetRechargeRateTiers(v)
 	}
+	if _, ok := _c.mutation.TimeRatePeriods(); !ok {
+		v := group.DefaultTimeRatePeriods
+		_c.mutation.SetTimeRatePeriods(v)
+	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		v := group.DefaultPeakRateEnabled
 		_c.mutation.SetPeakRateEnabled(v)
@@ -1276,6 +1286,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RechargeRateTiers(); !ok {
 		return &ValidationError{Name: "recharge_rate_tiers", err: errors.New(`ent: missing required field "Group.recharge_rate_tiers"`)}
+	}
+	if _, ok := _c.mutation.TimeRatePeriods(); !ok {
+		return &ValidationError{Name: "time_rate_periods", err: errors.New(`ent: missing required field "Group.time_rate_periods"`)}
 	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`ent: missing required field "Group.peak_rate_enabled"`)}
@@ -1523,6 +1536,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RechargeRateTiers(); ok {
 		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
 		_node.RechargeRateTiers = value
+	}
+	if value, ok := _c.mutation.TimeRatePeriods(); ok {
+		_spec.SetField(group.FieldTimeRatePeriods, field.TypeJSON, value)
+		_node.TimeRatePeriods = value
 	}
 	if value, ok := _c.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
@@ -2023,6 +2040,18 @@ func (u *GroupUpsert) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *Gr
 // UpdateRechargeRateTiers sets the "recharge_rate_tiers" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateRechargeRateTiers() *GroupUpsert {
 	u.SetExcluded(group.FieldRechargeRateTiers)
+	return u
+}
+
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (u *GroupUpsert) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpsert {
+	u.Set(group.FieldTimeRatePeriods, v)
+	return u
+}
+
+// UpdateTimeRatePeriods sets the "time_rate_periods" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateTimeRatePeriods() *GroupUpsert {
+	u.SetExcluded(group.FieldTimeRatePeriods)
 	return u
 }
 
@@ -3180,6 +3209,20 @@ func (u *GroupUpsertOne) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) 
 func (u *GroupUpsertOne) UpdateRechargeRateTiers() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRechargeRateTiers()
+	})
+}
+
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (u *GroupUpsertOne) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTimeRatePeriods(v)
+	})
+}
+
+// UpdateTimeRatePeriods sets the "time_rate_periods" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateTimeRatePeriods() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTimeRatePeriods()
 	})
 }
 
@@ -4668,6 +4711,20 @@ func (u *GroupUpsertBulk) SetRechargeRateTiers(v []domain.GroupRechargeRateTier)
 func (u *GroupUpsertBulk) UpdateRechargeRateTiers() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRechargeRateTiers()
+	})
+}
+
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (u *GroupUpsertBulk) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTimeRatePeriods(v)
+	})
+}
+
+// UpdateTimeRatePeriods sets the "time_rate_periods" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateTimeRatePeriods() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTimeRatePeriods()
 	})
 }
 

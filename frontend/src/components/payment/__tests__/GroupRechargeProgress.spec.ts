@@ -5,6 +5,7 @@ import { getRechargeProgress } from '@/api/groups'
 import { defaultGroupRechargeRateTiers } from '@/utils/groupRechargeRates'
 
 vi.mock('@/api/groups', () => ({ getRechargeProgress: vi.fn() }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({ cachedPublicSettings: { server_timezone: 'UTC' } }) }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, values?: object) => `${key} ${JSON.stringify(values ?? {})}` }) }))
 
 describe('GroupRechargeProgress', () => {

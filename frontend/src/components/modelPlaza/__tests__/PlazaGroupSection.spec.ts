@@ -146,4 +146,18 @@ describe('PlazaGroupSection 高峰配置传递', () => {
     const wrapper = mountSection(group())
     expect(wrapper.findComponent(PlazaModelPricingTable).props('peakWindow')).toBe('')
   })
+  it('updates the displayed current price automatically at a server-time boundary', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-06T11:59:59Z'))
+    const wrapper = mountSection(group({
+      user_rate_multiplier: 0.75, recharge_rate_enabled: true,
+      time_rate_periods: [{ start: '08:00', end: '20:00', rate_multiplier: 1.2 }, { start: '20:00', end: '08:00', rate_multiplier: 0.6 }]
+    }))
+    try {
+      expect(wrapper.findComponent(PlazaModelPricingTable).props('effectiveGroupRate')).toBe(0.9)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(wrapper.findComponent(PlazaModelPricingTable).props('effectiveGroupRate')).toBe(0.45)
+    } finally { wrapper.unmount(); vi.useRealTimers() }
+  })
+
 })

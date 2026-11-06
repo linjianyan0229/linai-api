@@ -12,6 +12,8 @@
           :subscription-type="(group.subscription_type || 'standard') as SubscriptionType"
           :rate-multiplier="group.rate_multiplier"
           :user-rate-multiplier="group.user_rate_multiplier ?? null"
+          :time-rate-periods="group.time_rate_periods"
+          :recharge-rate-enabled="group.recharge_rate_enabled"
           :peak-rate-enabled="group.peak_rate_enabled"
           :peak-start="group.peak_start"
           :peak-end="group.peak_end"
@@ -49,6 +51,7 @@
         <Icon name="infoCircle" size="xs" class="h-3 w-3" />
         {{ longContextNote }}
       </p>
+      <p v-if="group.time_rate_periods?.length === 2" class="mt-2 text-xs text-primary-600 dark:text-primary-300">{{ t('admin.groups.timeRates.schedule', { periods: formatGroupTimeRates(group, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai') }) }}</p>
     </header>
 
     <!-- 模型价格表:整行(含 hover 底色/分区底色)顶到卡片边缘,左右留白由表格首列/末列的 padding 提供 -->
@@ -56,6 +59,7 @@
       <PlazaModelPricingTable
         v-if="group.models.length > 0"
         :models="group.models"
+        :effective-group-rate="group.time_rate_periods?.length === 2 ? currentTimeRate(group, group.user_rate_multiplier ?? group.rate_multiplier) : undefined"
         :platform="group.platform"
         :rate-multiplier="group.rate_multiplier"
         :user-rate-multiplier="group.user_rate_multiplier ?? null"
@@ -74,6 +78,8 @@
 </template>
 
 <script setup lang="ts">
+import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
+import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
@@ -91,6 +97,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const currentTimeRate = useGroupTimeRate()
 
 /** 高峰窗口描述(含倍率与服务器时区标注);分组未启用高峰为空串。 */
 const peakWindow = computed(() => {

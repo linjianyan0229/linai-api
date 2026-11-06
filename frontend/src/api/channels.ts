@@ -1,3 +1,4 @@
+import type { GroupTimeRatePeriod } from '@/types'
 /**
  * User Channels API endpoints (non-admin)
  * 用户侧「可用渠道」聚合查询：渠道 + 用户可访问的分组 + 支持模型（含定价）。
@@ -14,6 +15,8 @@ export interface UserAvailableGroup {
   subscription_type: string
   /** 分组默认倍率。用户专属倍率（若有）通过 /groups/rates 获取后在前端 join。 */
   rate_multiplier: number
+  time_rate_periods?: GroupTimeRatePeriod[]
+  recharge_rate_enabled?: boolean
   peak_rate_enabled: boolean
   peak_start: string
   peak_end: string

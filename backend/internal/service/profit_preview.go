@@ -102,9 +102,15 @@ func PreviewProfitAdmission(inputs []ProfitPreviewGroupInput, evalAt time.Time) 
 			report.RemainingByModelMinD[model] = 0
 		}
 
-		peak := group.PeakMultiplierAt(evalAt)
-		defaultD := group.RateMultiplier * peak
-		minRate := group.RateMultiplier
+		defaultRate := group.RateMultiplier
+		if len(group.RechargeRateTiers) == 3 {
+			defaultRate = group.RechargeRateTiers[0].RateMultiplier
+		}
+		defaultD := group.EffectiveTokenRate(defaultRate, evalAt)
+		minRate := defaultRate
+		for _, tier := range group.RechargeRateTiers {
+			minRate = math.Min(minRate, tier.RateMultiplier)
+		}
 		for _, override := range in.UserOverrides {
 			if math.IsNaN(override) || math.IsInf(override, 0) || override < 0 {
 				continue
@@ -113,7 +119,7 @@ func PreviewProfitAdmission(inputs []ProfitPreviewGroupInput, evalAt time.Time) 
 				minRate = override
 			}
 		}
-		minD := minRate * peak
+		minD := group.EffectiveTokenRate(minRate, evalAt)
 		deduction := group.ProfitMinMargin + group.ProfitSafetyBuffer
 		thresholdDefault := clampProfitControlThreshold(defaultD * (1 - deduction))
 		thresholdMinD := clampProfitControlThreshold(minD * (1 - deduction))

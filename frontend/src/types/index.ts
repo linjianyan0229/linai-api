@@ -575,6 +575,12 @@ export interface GroupLocaleText {
 /** 以语言代码（en、zh…）为键的分组文案译文。 */
 export type GroupI18n = Record<string, GroupLocaleText>
 
+export interface GroupTimeRatePeriod {
+  start: string
+  end: string
+  rate_multiplier: number
+}
+
 export interface GroupRechargeRateTier {
   min_amount: number
   rate_multiplier: number
@@ -587,6 +593,7 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
   max_reasoning_effort?: string // Anthropic/OpenAI reasoning ceiling; empty means unlimited
@@ -876,6 +883,7 @@ export interface CreateGroupRequest {
   require_privacy_set?: boolean
   // 从指定分组复制账号
   copy_accounts_from_group_ids?: number[]
+  time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
 }
 
@@ -944,6 +952,7 @@ export interface UpdateGroupRequest {
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   copy_accounts_from_group_ids?: number[]
+  time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
 }
 

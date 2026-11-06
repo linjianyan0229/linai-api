@@ -99,6 +99,8 @@
                     :name="g.name"
                     :platform="g.platform as GroupPlatform"
                     :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
+                    :time-rate-periods="g.time_rate_periods"
+                    :recharge-rate-enabled="g.recharge_rate_enabled"
                     :rate-multiplier="g.rate_multiplier"
                     :user-rate-multiplier="userGroupRates[g.id] ?? null"
                     always-show-rate
@@ -133,6 +135,8 @@
                     :name="g.name"
                     :platform="g.platform as GroupPlatform"
                     :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
+                    :time-rate-periods="g.time_rate_periods"
+                    :recharge-rate-enabled="g.recharge_rate_enabled"
                     :rate-multiplier="g.rate_multiplier"
                     :user-rate-multiplier="userGroupRates[g.id] ?? null"
                     always-show-rate
@@ -238,7 +242,9 @@
                         :name="g.name"
                         :platform="g.platform as GroupPlatform"
                         :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
-                        :rate-multiplier="g.rate_multiplier"
+                        :time-rate-periods="g.time_rate_periods"
+                    :recharge-rate-enabled="g.recharge_rate_enabled"
+                    :rate-multiplier="g.rate_multiplier"
                         :user-rate-multiplier="userGroupRates[g.id] ?? null"
                         always-show-rate
                       />
@@ -273,7 +279,9 @@
                         :name="g.name"
                         :platform="g.platform as GroupPlatform"
                         :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
-                        :rate-multiplier="g.rate_multiplier"
+                        :time-rate-periods="g.time_rate_periods"
+                    :recharge-rate-enabled="g.recharge_rate_enabled"
+                    :rate-multiplier="g.rate_multiplier"
                         :user-rate-multiplier="userGroupRates[g.id] ?? null"
                         always-show-rate
                       />

@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { createPinia } from "pinia";
 import { createI18n } from "vue-i18n";
 import type { SubscriptionPlan } from "@/types/payment";
@@ -52,6 +53,24 @@ const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPla
   });
 
 describe("SubscriptionPlanCard", () => {
+  it("shows the current absolute period rate and updates at its boundary", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-06T23:59:59Z'));
+    const wrapper = mountPlanCard('openai', {rate_multiplier:0.8, time_rate_periods:[
+      {start:'08:00',end:'20:00',rate_multiplier:1.2},
+      {start:'20:00',end:'08:00',rate_multiplier:0.6},
+    ]});
+    try {
+      expect(wrapper.get('.grid > div:first-child .font-medium').text()).toBe('×0.6');
+      await vi.advanceTimersByTimeAsync(1000);
+      await nextTick();
+      expect(wrapper.get('.grid > div:first-child .font-medium').text()).toBe('×1.2');
+      expect(wrapper.text()).not.toContain('×0.8');
+    } finally {
+      wrapper.unmount();
+      vi.useRealTimers();
+    }
+  });
   it("does not show Antigravity model scopes for OpenAI plans", () => {
     const text = mountPlanCard("openai").text();
 

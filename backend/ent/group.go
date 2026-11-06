@@ -36,6 +36,8 @@ type Group struct {
 	RateMultiplier float64 `json:"rate_multiplier,omitempty"`
 	// RechargeRateTiers holds the value of the "recharge_rate_tiers" field.
 	RechargeRateTiers []domain.GroupRechargeRateTier `json:"recharge_rate_tiers,omitempty"`
+	// TimeRatePeriods holds the value of the "time_rate_periods" field.
+	TimeRatePeriods []domain.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
 	// 是否启用高峰时段倍率
 	PeakRateEnabled bool `json:"peak_rate_enabled,omitempty"`
 	// 高峰开始时间 HH:MM（含），如 14:00；空表示未配置；不支持跨天
@@ -264,7 +266,7 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case group.FieldI18n, group.FieldRechargeRateTiers, group.FieldVideoModelPrices, group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelAllowlist, group.FieldCodexModelsManifestConfig, group.FieldReasoningEffortMappings:
+		case group.FieldI18n, group.FieldRechargeRateTiers, group.FieldTimeRatePeriods, group.FieldVideoModelPrices, group.FieldModelPricing, group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelAllowlist, group.FieldCodexModelsManifestConfig, group.FieldReasoningEffortMappings:
 			values[i] = new([]byte)
 		case group.FieldPeakRateEnabled, group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowBatchImageGeneration, group.FieldImageCountBilling, group.FieldImageRateIndependent, group.FieldVideoRateIndependent, group.FieldLongContextPricingEnabled, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldAllowLive, group.FieldForceOpenaiFast, group.FieldFreeOpenaiFast, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet, group.FieldProfitControlEnabled:
 			values[i] = new(sql.NullBool)
@@ -349,6 +351,14 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.RechargeRateTiers); err != nil {
 					return fmt.Errorf("unmarshal field recharge_rate_tiers: %w", err)
+				}
+			}
+		case group.FieldTimeRatePeriods:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field time_rate_periods", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.TimeRatePeriods); err != nil {
+					return fmt.Errorf("unmarshal field time_rate_periods: %w", err)
 				}
 			}
 		case group.FieldPeakRateEnabled:
@@ -853,6 +863,9 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("recharge_rate_tiers=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RechargeRateTiers))
+	builder.WriteString(", ")
+	builder.WriteString("time_rate_periods=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TimeRatePeriods))
 	builder.WriteString(", ")
 	builder.WriteString("peak_rate_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PeakRateEnabled))

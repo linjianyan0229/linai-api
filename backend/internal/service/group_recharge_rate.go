@@ -61,6 +61,8 @@ type UserGroupRechargeRateRepository interface {
 }
 
 type GroupRechargeProgress struct {
+	TimeRatePeriods []GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
+
 	GroupID         int64                   `json:"group_id"`
 	GroupName       string                  `json:"group_name"`
 	Tiers           []GroupRechargeRateTier `json:"tiers"`
@@ -102,7 +104,7 @@ func (s *APIKeyService) GetRechargeProgress(ctx context.Context, userID int64, l
 		}
 		name, _ := group.I18n.Localize(language, group.Name, group.Description)
 		progress := GroupRechargeProgress{
-			GroupID: group.ID, GroupName: name, Tiers: group.RechargeRateTiers,
+			GroupID: group.ID, GroupName: name, Tiers: group.RechargeRateTiers, TimeRatePeriods: group.TimeRatePeriods,
 			Level: level, RateMultiplier: group.RechargeRateTiers[level-1].RateMultiplier,
 		}
 		if rate, exists := overrides[group.ID]; exists {

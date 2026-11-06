@@ -99,6 +99,7 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetTimeRatePeriods(append([]service.GroupTimeRatePeriod{}, groupIn.TimeRatePeriods...)).
 		SetRechargeRateTiers(append([]service.GroupRechargeRateTier{}, groupIn.RechargeRateTiers...)).
 		SetSortOrder(groupIn.SortOrder).
 		SetIsExclusive(groupIn.IsExclusive).
@@ -293,6 +294,7 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetTimeRatePeriods(append([]service.GroupTimeRatePeriod{}, groupIn.TimeRatePeriods...)).
 		SetRechargeRateTiers(append([]service.GroupRechargeRateTier{}, groupIn.RechargeRateTiers...)).
 		SetIsExclusive(groupIn.IsExclusive).
 		SetStatus(groupIn.Status).

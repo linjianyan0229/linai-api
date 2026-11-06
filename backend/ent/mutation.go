@@ -22145,6 +22145,8 @@ type GroupMutation struct {
 	addrate_multiplier                      *float64
 	recharge_rate_tiers                     *[]domain.GroupRechargeRateTier
 	appendrecharge_rate_tiers               []domain.GroupRechargeRateTier
+	time_rate_periods                       *[]domain.GroupTimeRatePeriod
+	appendtime_rate_periods                 []domain.GroupTimeRatePeriod
 	peak_rate_enabled                       *bool
 	peak_start                              *string
 	peak_end                                *string
@@ -22704,6 +22706,57 @@ func (m *GroupMutation) AppendedRechargeRateTiers() ([]domain.GroupRechargeRateT
 func (m *GroupMutation) ResetRechargeRateTiers() {
 	m.recharge_rate_tiers = nil
 	m.appendrecharge_rate_tiers = nil
+}
+
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (m *GroupMutation) SetTimeRatePeriods(dtrp []domain.GroupTimeRatePeriod) {
+	m.time_rate_periods = &dtrp
+	m.appendtime_rate_periods = nil
+}
+
+// TimeRatePeriods returns the value of the "time_rate_periods" field in the mutation.
+func (m *GroupMutation) TimeRatePeriods() (r []domain.GroupTimeRatePeriod, exists bool) {
+	v := m.time_rate_periods
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeRatePeriods returns the old "time_rate_periods" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldTimeRatePeriods(ctx context.Context) (v []domain.GroupTimeRatePeriod, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeRatePeriods is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeRatePeriods requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeRatePeriods: %w", err)
+	}
+	return oldValue.TimeRatePeriods, nil
+}
+
+// AppendTimeRatePeriods adds dtrp to the "time_rate_periods" field.
+func (m *GroupMutation) AppendTimeRatePeriods(dtrp []domain.GroupTimeRatePeriod) {
+	m.appendtime_rate_periods = append(m.appendtime_rate_periods, dtrp...)
+}
+
+// AppendedTimeRatePeriods returns the list of values that were appended to the "time_rate_periods" field in this mutation.
+func (m *GroupMutation) AppendedTimeRatePeriods() ([]domain.GroupTimeRatePeriod, bool) {
+	if len(m.appendtime_rate_periods) == 0 {
+		return nil, false
+	}
+	return m.appendtime_rate_periods, true
+}
+
+// ResetTimeRatePeriods resets all changes to the "time_rate_periods" field.
+func (m *GroupMutation) ResetTimeRatePeriods() {
+	m.time_rate_periods = nil
+	m.appendtime_rate_periods = nil
 }
 
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
@@ -26102,7 +26155,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 69)
+	fields := make([]string, 0, 70)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26126,6 +26179,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.recharge_rate_tiers != nil {
 		fields = append(fields, group.FieldRechargeRateTiers)
+	}
+	if m.time_rate_periods != nil {
+		fields = append(fields, group.FieldTimeRatePeriods)
 	}
 	if m.peak_rate_enabled != nil {
 		fields = append(fields, group.FieldPeakRateEnabled)
@@ -26334,6 +26390,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.RateMultiplier()
 	case group.FieldRechargeRateTiers:
 		return m.RechargeRateTiers()
+	case group.FieldTimeRatePeriods:
+		return m.TimeRatePeriods()
 	case group.FieldPeakRateEnabled:
 		return m.PeakRateEnabled()
 	case group.FieldPeakStart:
@@ -26481,6 +26539,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldRateMultiplier(ctx)
 	case group.FieldRechargeRateTiers:
 		return m.OldRechargeRateTiers(ctx)
+	case group.FieldTimeRatePeriods:
+		return m.OldTimeRatePeriods(ctx)
 	case group.FieldPeakRateEnabled:
 		return m.OldPeakRateEnabled(ctx)
 	case group.FieldPeakStart:
@@ -26667,6 +26727,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRechargeRateTiers(v)
+		return nil
+	case group.FieldTimeRatePeriods:
+		v, ok := value.([]domain.GroupTimeRatePeriod)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeRatePeriods(v)
 		return nil
 	case group.FieldPeakRateEnabled:
 		v, ok := value.(bool)
@@ -27629,6 +27696,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRechargeRateTiers:
 		m.ResetRechargeRateTiers()
+		return nil
+	case group.FieldTimeRatePeriods:
+		m.ResetTimeRatePeriods()
 		return nil
 	case group.FieldPeakRateEnabled:
 		m.ResetPeakRateEnabled()

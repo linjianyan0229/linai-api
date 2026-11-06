@@ -261,10 +261,11 @@
             </div>
           </template>
 
-          <template #cell-rate_multiplier="{ value }">
+          <template #cell-rate_multiplier="{ value, row }">
             <span class="text-sm text-gray-700 dark:text-gray-300"
               >{{ value }}x</span
             >
+            <span v-if="row.time_rate_periods?.length === 2" class="ml-2 badge badge-primary" :title="formatGroupTimeRates(row, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')">{{ t('admin.groups.timeRates.title') }}</span>
           </template>
 
           <template #cell-is_exclusive="{ value }">
@@ -1190,52 +1191,15 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
-        <div v-if="createForm.subscription_type === 'subscription'" class="border-t pt-4">
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                v-model="createForm.peak_rate_enabled"
-                type="checkbox"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span>{{ t("admin.groups.peakRate.enable") }}</span>
-            </label>
-          </div>
-          <div
-            v-if="createForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
-          >
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
-              <input
-                v-model="createForm.peak_start"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakEnd") }}</label>
-              <input
-                v-model="createForm.peak_end"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakMultiplier") }}</label>
-              <input
-                v-model.number="createForm.peak_rate_multiplier"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
-              />
-            </div>
-          </div>
-        </div>
+        <GroupTimeRateEditor
+          v-if="!authStore.isSimpleMode"
+          :model-value="createForm.time_rate_periods"
+          :recharge-tiers="createForm.subscription_type === 'subscription' ? [] : createForm.recharge_rate_tiers"
+          :base-rate="createForm.rate_multiplier"
+          :timezone="appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'"
+          :legacy-enabled="createForm.peak_rate_enabled"
+          @update:model-value="updateTimeRates(createForm, $event)"
+        />
 
         <!-- 分组利润控制（五个平台 token 请求） -->
         <div v-if="isProfitControlPlatform(createForm.platform)" class="border-t pt-4">
@@ -2848,52 +2812,15 @@
           </div>
         </div>
 
-        <!-- 高峰时段倍率配置（仅订阅类型分组） -->
-        <div v-if="editForm.subscription_type === 'subscription'" class="border-t pt-4">
-          <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                v-model="editForm.peak_rate_enabled"
-                type="checkbox"
-                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span>{{ t("admin.groups.peakRate.enable") }}</span>
-            </label>
-          </div>
-          <div
-            v-if="editForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
-          >
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
-              <input
-                v-model="editForm.peak_start"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakEnd") }}</label>
-              <input
-                v-model="editForm.peak_end"
-                type="time"
-                class="input"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t("admin.groups.peakRate.peakMultiplier") }}</label>
-              <input
-                v-model.number="editForm.peak_rate_multiplier"
-                type="number"
-                step="0.001"
-                min="0"
-                class="input"
-                placeholder="1"
-                :title="t('admin.groups.peakRate.multiplierHint')"
-              />
-            </div>
-          </div>
-        </div>
+        <GroupTimeRateEditor
+          v-if="!authStore.isSimpleMode"
+          :model-value="editForm.time_rate_periods"
+          :recharge-tiers="editForm.subscription_type === 'subscription' ? [] : editForm.recharge_rate_tiers"
+          :base-rate="editForm.rate_multiplier"
+          :timezone="appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'"
+          :legacy-enabled="editForm.peak_rate_enabled"
+          @update:model-value="updateTimeRates(editForm, $event)"
+        />
 
         <!-- 分组利润控制（五个平台 token 请求） -->
         <div v-if="isProfitControlPlatform(editForm.platform)" class="border-t pt-4">
@@ -4336,9 +4263,11 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import { platformLabel } from "@/utils/platformColors";
 import Icon from "@/components/icons/Icon.vue";
 import GroupI18nField from "@/components/admin/group/GroupI18nField.vue";
+import GroupTimeRateEditor from "@/components/admin/group/GroupTimeRateEditor.vue";
+import { formatGroupTimeRates, validGroupTimeRates } from "@/utils/groupTimeRates";
 import GroupRechargeRateEditor from "@/components/admin/group/GroupRechargeRateEditor.vue";
 import { validGroupRechargeRateTiers } from "@/utils/groupRechargeRates";
-import type { GroupRechargeRateTier } from "@/types";
+import type { GroupRechargeRateTier, GroupTimeRatePeriod } from "@/types";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
@@ -4978,12 +4907,18 @@ const submitEditAllowlistCustomEntry = () => {
   }
 };
 
+function updateTimeRates(form: { time_rate_periods: GroupTimeRatePeriod[]; peak_rate_enabled: boolean }, periods: GroupTimeRatePeriod[]) {
+  form.time_rate_periods = periods;
+  if (periods.length) form.peak_rate_enabled = false;
+}
+
 const createForm = reactive({
   name: "",
   description: "",
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  time_rate_periods: [] as GroupTimeRatePeriod[],
   recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
@@ -5351,6 +5286,7 @@ const editForm = reactive({
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  time_rate_periods: [] as GroupTimeRatePeriod[],
   recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
   status: "active" as "active" | "inactive",
@@ -5829,6 +5765,7 @@ const closeCreateModal = () => {
   createForm.i18n = {};
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.time_rate_periods = [];
   createForm.recharge_rate_tiers = [];
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
@@ -5949,6 +5886,10 @@ const handleCreateGroup = async () => {
     createReasoningEffortPolicyRef.value &&
     !createReasoningEffortPolicyRef.value.validate()
   ) {
+    return;
+  }
+  if (!validGroupTimeRates(createForm.time_rate_periods)) {
+    appStore.showError(t("admin.groups.timeRates.invalid"));
     return;
   }
   if (createForm.subscription_type !== 'subscription' && !validGroupRechargeRateTiers(createForm.recharge_rate_tiers)) {
@@ -6119,6 +6060,7 @@ const handleEdit = async (group: AdminGroup) => {
   );
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.time_rate_periods = (group.time_rate_periods ?? []).map((period) => ({ ...period }));
   editForm.recharge_rate_tiers = (group.recharge_rate_tiers ?? []).map((tier) => ({ ...tier }));
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
@@ -6249,6 +6191,7 @@ const closeEditModal = () => {
   editReasoningEffortPolicyRef.value?.resetValidation();
   editModelRoutingRules.value = [];
   editForm.copy_accounts_from_group_ids = [];
+  editForm.time_rate_periods = [];
   editForm.peak_rate_enabled = false;
   editForm.peak_start = "";
   editForm.peak_end = "";
@@ -6290,6 +6233,10 @@ const handleUpdateGroup = async () => {
     editReasoningEffortPolicyRef.value &&
     !editReasoningEffortPolicyRef.value.validate()
   ) {
+    return;
+  }
+  if (!validGroupTimeRates(editForm.time_rate_periods)) {
+    appStore.showError(t("admin.groups.timeRates.invalid"));
     return;
   }
   if (editForm.subscription_type !== 'subscription' && !validGroupRechargeRateTiers(editForm.recharge_rate_tiers)) {

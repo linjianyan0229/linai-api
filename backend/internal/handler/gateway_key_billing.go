@@ -14,20 +14,22 @@ import (
 const keyBillingInfoSchemaVersion = 1
 
 type keyBillingInfoResponse struct {
-	Object                  string    `json:"object"`
-	SchemaVersion           int       `json:"schema_version"`
-	BillingScope            string    `json:"billing_scope"`
-	GroupRateMultiplier     float64   `json:"group_rate_multiplier"`
-	UserRateMultiplier      *float64  `json:"user_rate_multiplier,omitempty"`
-	ResolvedRateMultiplier  float64   `json:"resolved_rate_multiplier"`
-	PeakRateEnabled         bool      `json:"peak_rate_enabled"`
-	PeakStart               *string   `json:"peak_start,omitempty"`
-	PeakEnd                 *string   `json:"peak_end,omitempty"`
-	PeakRateMultiplier      *float64  `json:"peak_rate_multiplier,omitempty"`
-	AppliedPeakMultiplier   *float64  `json:"applied_peak_multiplier,omitempty"`
-	EffectiveRateMultiplier float64   `json:"effective_rate_multiplier"`
-	Timezone                *string   `json:"timezone,omitempty"`
-	ObservedAt              time.Time `json:"observed_at"`
+	Object                  string                        `json:"object"`
+	SchemaVersion           int                           `json:"schema_version"`
+	BillingScope            string                        `json:"billing_scope"`
+	GroupRateMultiplier     float64                       `json:"group_rate_multiplier"`
+	UserRateMultiplier      *float64                      `json:"user_rate_multiplier,omitempty"`
+	ResolvedRateMultiplier  float64                       `json:"resolved_rate_multiplier"`
+	PeakRateEnabled         bool                          `json:"peak_rate_enabled"`
+	PeakStart               *string                       `json:"peak_start,omitempty"`
+	PeakEnd                 *string                       `json:"peak_end,omitempty"`
+	PeakRateMultiplier      *float64                      `json:"peak_rate_multiplier,omitempty"`
+	AppliedPeakMultiplier   *float64                      `json:"applied_peak_multiplier,omitempty"`
+	EffectiveRateMultiplier float64                       `json:"effective_rate_multiplier"`
+	Timezone                *string                       `json:"timezone,omitempty"`
+	ObservedAt              time.Time                     `json:"observed_at"`
+	TimeRatePeriods         []service.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
+	RechargeRateEnabled     bool                          `json:"recharge_rate_enabled,omitempty"`
 }
 
 // KeyBillingInfo returns the token billing multiplier effective for the authenticated API key.
@@ -93,7 +95,7 @@ func buildKeyBillingInfo(apiKey *service.APIKey, resolvedRate float64, now time.
 		UserRateMultiplier:      userRate,
 		ResolvedRateMultiplier:  resolvedRate,
 		PeakRateEnabled:         apiKey.Group.PeakRateEnabled,
-		EffectiveRateMultiplier: resolvedRate * appliedPeak,
+		EffectiveRateMultiplier: apiKey.Group.EffectiveTokenRate(resolvedRate, now),
 		ObservedAt:              now.UTC(),
 	}
 	if apiKey.Group.PeakRateEnabled {
@@ -101,6 +103,12 @@ func buildKeyBillingInfo(apiKey *service.APIKey, resolvedRate float64, now time.
 		response.PeakEnd = &apiKey.Group.PeakEnd
 		response.PeakRateMultiplier = &apiKey.Group.PeakRateMultiplier
 		response.AppliedPeakMultiplier = &appliedPeak
+		tz := timezone.Location().String()
+		response.Timezone = &tz
+	}
+	if len(apiKey.Group.TimeRatePeriods) == 2 {
+		response.TimeRatePeriods = apiKey.Group.TimeRatePeriods
+		response.RechargeRateEnabled = len(apiKey.Group.RechargeRateTiers) == 3
 		tz := timezone.Location().String()
 		response.Timezone = &tz
 	}

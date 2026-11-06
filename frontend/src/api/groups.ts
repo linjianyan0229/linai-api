@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client'
-import type { Group, GroupRechargeRateTier } from '@/types'
+import type { Group, GroupRechargeRateTier, GroupTimeRatePeriod } from '@/types'
 
 /**
  * Get available groups that the current user can bind to API keys
@@ -28,6 +28,7 @@ export async function getUserGroupRates(): Promise<Record<number, number>> {
 }
 
 export interface GroupRechargeProgress {
+  time_rate_periods?: GroupTimeRatePeriod[]
   group_id: number
   group_name: string
   tiers: GroupRechargeRateTier[]

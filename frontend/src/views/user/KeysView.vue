@@ -169,6 +169,8 @@
                   :subscription-type="row.group.subscription_type"
                   :rate-multiplier="row.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[row.group.id]"
+                  :time-rate-periods="row.group.time_rate_periods"
+                  :recharge-rate-enabled="row.group.recharge_rate_tiers?.length === 3"
                   :peak-rate-enabled="row.group.peak_rate_enabled"
                   :peak-start="row.group.peak_start"
                   :peak-end="row.group.peak_end"
@@ -555,6 +557,8 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :time-rate-periods="(option as unknown as GroupOption).timeRatePeriods"
+                :recharge-rate-enabled="(option as unknown as GroupOption).rechargeRateEnabled"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -569,6 +573,8 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :time-rate-periods="(option as unknown as GroupOption).timeRatePeriods"
+                :recharge-rate-enabled="(option as unknown as GroupOption).rechargeRateEnabled"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -1121,7 +1127,9 @@
               :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
-              :peak-rate-enabled="option.peakRateEnabled"
+              :time-rate-periods="option.timeRatePeriods"
+                :recharge-rate-enabled="option.rechargeRateEnabled"
+                :peak-rate-enabled="option.peakRateEnabled"
               :peak-start="option.peakStart"
               :peak-end="option.peakEnd"
               :peak-rate-multiplier="option.peakRateMultiplier"
@@ -1194,6 +1202,8 @@ interface GroupOption {
   description: string | null
   rate: number
   userRate: number | null
+  timeRatePeriods?: import('@/types').GroupTimeRatePeriod[]
+  rechargeRateEnabled?: boolean
   peakRateEnabled: boolean
   peakStart: string
   peakEnd: string
@@ -1461,6 +1471,8 @@ const groupOptions = computed(() =>
     description: group.description,
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
+    timeRatePeriods: group.time_rate_periods,
+    rechargeRateEnabled: group.recharge_rate_tiers?.length === 3,
     peakRateEnabled: group.peak_rate_enabled,
     peakStart: group.peak_start,
     peakEnd: group.peak_end,

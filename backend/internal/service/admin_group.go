@@ -497,6 +497,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if err := ValidatePeakRateConfig(subscriptionType, peakRateEnabled, peakStart, peakEnd, peakRateMultiplier); err != nil {
 		return nil, infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", err.Error())
 	}
+	if err := ValidateGroupTimeRatePeriods(input.TimeRatePeriods, peakRateEnabled); err != nil {
+		return nil, err
+	}
 
 	profitMinMargin := 0.0
 	if input.ProfitMinMargin != nil {
@@ -584,6 +587,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		I18n:                            i18n,
 		Platform:                        platform,
 		RateMultiplier:                  input.RateMultiplier,
+		TimeRatePeriods:                 append([]GroupTimeRatePeriod{}, input.TimeRatePeriods...),
 		RechargeRateTiers:               append([]GroupRechargeRateTier{}, input.RechargeRateTiers...),
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
@@ -924,6 +928,12 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier = NormalizePeakRateConfig(group.SubscriptionType, group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier)
 	if err := ValidatePeakRateConfig(group.SubscriptionType, group.PeakRateEnabled, group.PeakStart, group.PeakEnd, group.PeakRateMultiplier); err != nil {
 		return nil, infraerrors.BadRequest("INVALID_PEAK_RATE_CONFIG", err.Error())
+	}
+	if input.TimeRatePeriods != nil {
+		group.TimeRatePeriods = append([]GroupTimeRatePeriod{}, (*input.TimeRatePeriods)...)
+	}
+	if err := ValidateGroupTimeRatePeriods(group.TimeRatePeriods, group.PeakRateEnabled); err != nil {
+		return nil, err
 	}
 	if input.ProfitControlEnabled != nil {
 		group.ProfitControlEnabled = *input.ProfitControlEnabled

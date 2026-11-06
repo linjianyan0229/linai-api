@@ -110,6 +110,8 @@ import { useI18n } from 'vue-i18n'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
 import { useAppStore } from '@/stores/app'
+import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
+import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { planValiditySuffix } from './validity'
 import { currencySymbol } from '@/components/payment/currency'
@@ -150,16 +152,18 @@ const discountText = computed(() => {
 })
 
 const rateDisplay = computed(() => {
-  const rate = props.plan.rate_multiplier ?? 1
+  const rate = currentTimeRate(props.plan, props.plan.rate_multiplier ?? 1)
   return `×${Number(rate.toPrecision(10))}`
 })
 
 const appStore = useAppStore()
+const currentTimeRate = useGroupTimeRate()
 const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
 
-const hasPeakRate = computed(() => groupHasPeakRate(props.plan))
+const hasPeakRate = computed(() => props.plan.time_rate_periods?.length === 2 || groupHasPeakRate(props.plan))
 
 const peakRateDisplay = computed(() => {
+  if (props.plan.time_rate_periods?.length === 2) return formatGroupTimeRates(props.plan, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
   return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 })
 

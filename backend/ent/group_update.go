@@ -136,6 +136,18 @@ func (_u *GroupUpdate) AppendRechargeRateTiers(v []domain.GroupRechargeRateTier)
 	return _u
 }
 
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (_u *GroupUpdate) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpdate {
+	_u.mutation.SetTimeRatePeriods(v)
+	return _u
+}
+
+// AppendTimeRatePeriods appends value to the "time_rate_periods" field.
+func (_u *GroupUpdate) AppendTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpdate {
+	_u.mutation.AppendTimeRatePeriods(v)
+	return _u
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_u *GroupUpdate) SetPeakRateEnabled(v bool) *GroupUpdate {
 	_u.mutation.SetPeakRateEnabled(v)
@@ -1630,6 +1642,14 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			sqljson.Append(u, group.FieldRechargeRateTiers, value)
 		})
 	}
+	if value, ok := _u.mutation.TimeRatePeriods(); ok {
+		_spec.SetField(group.FieldTimeRatePeriods, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeRatePeriods(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldTimeRatePeriods, value)
+		})
+	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
 	}
@@ -2373,6 +2393,18 @@ func (_u *GroupUpdateOne) SetRechargeRateTiers(v []domain.GroupRechargeRateTier)
 // AppendRechargeRateTiers appends value to the "recharge_rate_tiers" field.
 func (_u *GroupUpdateOne) AppendRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdateOne {
 	_u.mutation.AppendRechargeRateTiers(v)
+	return _u
+}
+
+// SetTimeRatePeriods sets the "time_rate_periods" field.
+func (_u *GroupUpdateOne) SetTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpdateOne {
+	_u.mutation.SetTimeRatePeriods(v)
+	return _u
+}
+
+// AppendTimeRatePeriods appends value to the "time_rate_periods" field.
+func (_u *GroupUpdateOne) AppendTimeRatePeriods(v []domain.GroupTimeRatePeriod) *GroupUpdateOne {
+	_u.mutation.AppendTimeRatePeriods(v)
 	return _u
 }
 
@@ -3898,6 +3930,14 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	if value, ok := _u.mutation.AppendedRechargeRateTiers(); ok {
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, group.FieldRechargeRateTiers, value)
+		})
+	}
+	if value, ok := _u.mutation.TimeRatePeriods(); ok {
+		_spec.SetField(group.FieldTimeRatePeriods, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeRatePeriods(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, group.FieldTimeRatePeriods, value)
 		})
 	}
 	if value, ok := _u.mutation.PeakRateEnabled(); ok {

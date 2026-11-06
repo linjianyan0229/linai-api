@@ -22,6 +22,7 @@ type Group struct {
 	I18n              GroupI18n // 名称与描述的界面语言译文；缺失的语言沿用 Name/Description
 	Platform          string
 	RateMultiplier    float64
+	TimeRatePeriods   []GroupTimeRatePeriod
 	RechargeRateTiers []GroupRechargeRateTier
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费倍率额外乘以 PeakRateMultiplier。详见 PeakMultiplierAt。
@@ -389,11 +390,12 @@ func NormalizePeakRateConfig(subscriptionType string, enabled bool, start, end s
 	return enabled, start, end, multiplier
 }
 
-// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
-// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；token 倍率在 base 上叠加高峰因子。
+// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含时间规则）
+// 拆分为最终 token 倍率与图片按次倍率。独立图片倍率不随分组时段变化。
 // gateway_service.recordUsageCore 与 openai_gateway_service.RecordUsage 共用此函数，
-// 锁死"高峰因子只乘入 token 倍率、图片按次倍率不受影响"这一叠加顺序——任何调换都会被 group_peak_rate_test 覆盖。
+// 新峰谷先调整基础倍率，再分别计算共享 / 独立图片倍率；旧订阅高峰仅叠加 token。
 func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (text, image float64) {
+	base = TimeAdjustedGroupRate(apiKey, base, now)
 	image = resolveImageRateMultiplier(apiKey, base)
 	peak := 1.0
 	if apiKey != nil && apiKey.Group != nil {

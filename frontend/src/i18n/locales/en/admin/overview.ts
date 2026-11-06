@@ -1135,6 +1135,23 @@ export default {
           'Leave empty to use the default $0.01 per call (official pricing: $10 per 1,000 calls); 0 means free. The group rate multiplier is applied on top.',
         finalPricePreview: 'Per-call price after current multiplier: {price}'
       },
+      timeRates: {
+        title: "Daily peak / off-peak rates",
+        hint: "Switch daily in server timezone {timezone}. The two connected periods cover 24 hours and support midnight. Changing one boundary updates the other period.",
+        peak: "Peak period",
+        valley: "Off-peak period",
+        start: "Starts at",
+        end: "Ends at",
+        rate: "Final rate for this period",
+        coefficient: "Period coefficient",
+        absolute: "Without recharge levels, the period rate replaces fixed group and user rates. Independent image and video rates retain their own settings.",
+        stacked: "With recharge levels: earned level rate × period coefficient. A manual user rate replaces the earned base before the coefficient is applied. Independent image and video rates retain their own settings.",
+        invalid: "Use two adjacent periods covering 24 hours, with distinct start and end times. Rates must be 0–999999.9999 with at most four decimal places.",
+        legacy: "The existing subscription peak rule is active. Enabling this schedule replaces it; disabling the new schedule restores ordinary base pricing.",
+        preview: "Level {level}: peak {peak}× / off-peak {valley}×",
+        current: "Current period rate {rate}×",
+        schedule: "Daily periods: {periods}",
+      },
       peakRate: {
         enable: 'Enable peak rate multiplier',
         peakStart: 'Peak start',

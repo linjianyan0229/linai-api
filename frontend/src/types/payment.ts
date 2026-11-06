@@ -1,3 +1,4 @@
+import type { GroupTimeRatePeriod } from '@/types'
 /**
  * Payment System Type Definitions
  */
@@ -128,6 +129,8 @@ export interface SubscriptionPlan {
   group_platform?: string
   group_name?: string
   rate_multiplier?: number
+  time_rate_periods?: GroupTimeRatePeriod[]
+  recharge_rate_enabled?: boolean
   peak_rate_enabled?: boolean
   peak_start?: string
   peak_end?: string

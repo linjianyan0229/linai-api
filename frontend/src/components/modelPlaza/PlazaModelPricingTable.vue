@@ -335,6 +335,7 @@ const props = defineProps<{
   /** 分组平台;实付分区底色随平台着色,未知平台回退品牌青。 */
   platform?: string
   /** 分组默认倍率。 */
+  effectiveGroupRate?: number
   rateMultiplier: number
   /** 用户专属倍率;与默认不同,实付价按此计算并划线展示原倍率。 */
   userRateMultiplier?: number | null
@@ -380,9 +381,9 @@ const sortedModels = computed(() => {
   })
 })
 
-const effectiveRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+const effectiveRate = computed(() => props.effectiveGroupRate ?? props.userRateMultiplier ?? props.rateMultiplier)
 const hasCustomRate = computed(
-  () => props.userRateMultiplier != null && props.userRateMultiplier !== props.rateMultiplier
+  () => props.effectiveGroupRate == null && props.userRateMultiplier != null && props.userRateMultiplier !== props.rateMultiplier
 )
 
 function billingMode(m: PlazaModel): BillingMode {

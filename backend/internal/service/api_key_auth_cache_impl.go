@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 25 // v25: group image_count_billing switch (per-image billing on image endpoints)
+const apiKeyAuthSnapshotVersion = 26 // v26: daily time rates and recharge-tier configuration
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -429,6 +429,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			MaxReasoningEffort:              apiKey.Group.MaxReasoningEffort,
 			MaxReasoningEffortOverLimit:     apiKey.Group.MaxReasoningEffortOverLimit,
 			ReasoningEffortMappings:         apiKey.Group.ReasoningEffortMappings,
+			TimeRatePeriods:                 append([]GroupTimeRatePeriod(nil), apiKey.Group.TimeRatePeriods...),
+			RechargeRateTiers:               append([]GroupRechargeRateTier(nil), apiKey.Group.RechargeRateTiers...),
 			PeakRateEnabled:                 apiKey.Group.PeakRateEnabled,
 			PeakStart:                       apiKey.Group.PeakStart,
 			PeakEnd:                         apiKey.Group.PeakEnd,
@@ -532,6 +534,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			MaxReasoningEffort:              snapshot.Group.MaxReasoningEffort,
 			MaxReasoningEffortOverLimit:     snapshot.Group.MaxReasoningEffortOverLimit,
 			ReasoningEffortMappings:         snapshot.Group.ReasoningEffortMappings,
+			TimeRatePeriods:                 append([]GroupTimeRatePeriod(nil), snapshot.Group.TimeRatePeriods...),
+			RechargeRateTiers:               append([]GroupRechargeRateTier(nil), snapshot.Group.RechargeRateTiers...),
 			PeakRateEnabled:                 snapshot.Group.PeakRateEnabled,
 			PeakStart:                       snapshot.Group.PeakStart,
 			PeakEnd:                         snapshot.Group.PeakEnd,

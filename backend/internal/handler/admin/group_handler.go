@@ -189,6 +189,7 @@ type CreateGroupRequest struct {
 	Description               string                          `json:"description"`
 	I18n                      service.GroupI18n               `json:"i18n"` // 名称与描述的界面语言译文
 	Platform                  string                          `json:"platform" binding:"omitempty,group_platform"`
+	TimeRatePeriods           []service.GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers         []service.GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	RateMultiplier            float64                         `json:"rate_multiplier"`
 	IsExclusive               bool                            `json:"is_exclusive"`
@@ -266,6 +267,7 @@ type UpdateGroupRequest struct {
 	Description               *string                          `json:"description"`
 	I18n                      *service.GroupI18n               `json:"i18n"` // 缺省不修改，传入则整体替换
 	Platform                  string                           `json:"platform" binding:"omitempty,group_platform"`
+	TimeRatePeriods           *[]service.GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers         *[]service.GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	RateMultiplier            *float64                         `json:"rate_multiplier"`
 	IsExclusive               *bool                            `json:"is_exclusive"`
@@ -676,6 +678,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		TimeRatePeriods:                 req.TimeRatePeriods,
 		RechargeRateTiers:               req.RechargeRateTiers,
 		IsExclusive:                     req.IsExclusive,
 		SubscriptionType:                req.SubscriptionType,
@@ -824,6 +827,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		TimeRatePeriods:                 req.TimeRatePeriods,
 		RechargeRateTiers:               req.RechargeRateTiers,
 		IsExclusive:                     req.IsExclusive,
 		Status:                          req.Status,

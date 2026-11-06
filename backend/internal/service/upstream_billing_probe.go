@@ -159,20 +159,22 @@ func BuildUpstreamBillingRateSnapshotItems(accounts []Account) []UpstreamBilling
 }
 
 type upstreamBillingProbeResponse struct {
-	Object                  string   `json:"object"`
-	SchemaVersion           int      `json:"schema_version"`
-	BillingScope            string   `json:"billing_scope"`
-	GroupRateMultiplier     *float64 `json:"group_rate_multiplier"`
-	UserRateMultiplier      *float64 `json:"user_rate_multiplier"`
-	ResolvedRateMultiplier  *float64 `json:"resolved_rate_multiplier"`
-	PeakRateEnabled         *bool    `json:"peak_rate_enabled"`
-	PeakStart               *string  `json:"peak_start"`
-	PeakEnd                 *string  `json:"peak_end"`
-	PeakRateMultiplier      *float64 `json:"peak_rate_multiplier"`
-	AppliedPeakMultiplier   *float64 `json:"applied_peak_multiplier"`
-	EffectiveRateMultiplier *float64 `json:"effective_rate_multiplier"`
-	Timezone                *string  `json:"timezone"`
-	ObservedAt              string   `json:"observed_at"`
+	Object                  string                `json:"object"`
+	SchemaVersion           int                   `json:"schema_version"`
+	BillingScope            string                `json:"billing_scope"`
+	GroupRateMultiplier     *float64              `json:"group_rate_multiplier"`
+	UserRateMultiplier      *float64              `json:"user_rate_multiplier"`
+	ResolvedRateMultiplier  *float64              `json:"resolved_rate_multiplier"`
+	PeakRateEnabled         *bool                 `json:"peak_rate_enabled"`
+	PeakStart               *string               `json:"peak_start"`
+	PeakEnd                 *string               `json:"peak_end"`
+	TimeRatePeriods         []GroupTimeRatePeriod `json:"time_rate_periods"`
+	RechargeRateEnabled     bool                  `json:"recharge_rate_enabled"`
+	PeakRateMultiplier      *float64              `json:"peak_rate_multiplier"`
+	AppliedPeakMultiplier   *float64              `json:"applied_peak_multiplier"`
+	EffectiveRateMultiplier *float64              `json:"effective_rate_multiplier"`
+	Timezone                *string               `json:"timezone"`
+	ObservedAt              string                `json:"observed_at"`
 }
 
 // GetUpstreamBillingProbeSettings returns defaults when the setting is absent.
@@ -865,6 +867,14 @@ func parseUpstreamBillingProbeResponse(body []byte) (map[string]any, error) {
 		data["applied_peak_multiplier"] = *response.AppliedPeakMultiplier
 		data["timezone"] = *response.Timezone
 	}
+	if len(response.TimeRatePeriods) > 0 {
+		if err := ValidateGroupTimeRatePeriods(response.TimeRatePeriods, *response.PeakRateEnabled); err != nil || response.Timezone == nil {
+			return nil, fmt.Errorf("invalid daily billing schedule")
+		}
+		data["time_rate_periods"] = response.TimeRatePeriods
+		data["recharge_rate_enabled"] = response.RechargeRateEnabled
+		data["timezone"] = *response.Timezone
+	}
 	appliedPeak, ok := upstreamBillingPeakMultiplierAt(data, observedAt)
 	if !ok {
 		return nil, fmt.Errorf("invalid peak billing response")
@@ -876,7 +886,8 @@ func parseUpstreamBillingProbeResponse(body []byte) (map[string]any, error) {
 	} else if response.AppliedPeakMultiplier != nil && !equalBillingMultiplier(*response.AppliedPeakMultiplier, 1) {
 		return nil, fmt.Errorf("inconsistent applied peak multiplier")
 	}
-	if !equalBillingMultiplier(*response.EffectiveRateMultiplier, *response.ResolvedRateMultiplier*appliedPeak) {
+	expectedEffective, validEffective := upstreamBillingRateAt(data, observedAt)
+	if !validEffective || !equalBillingMultiplier(*response.EffectiveRateMultiplier, expectedEffective) {
 		return nil, fmt.Errorf("inconsistent effective billing multiplier")
 	}
 	return data, nil
@@ -893,6 +904,27 @@ func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
 	appliedPeak, ok := upstreamBillingPeakMultiplierAt(data, now)
 	if !ok {
 		return 0, false
+	}
+	if raw, exists := data["time_rate_periods"]; exists {
+		encoded, err := json.Marshal(raw)
+		var periods []GroupTimeRatePeriod
+		if err != nil || json.Unmarshal(encoded, &periods) != nil || len(periods) != 2 || ValidateGroupTimeRatePeriods(periods, false) != nil {
+			return 0, false
+		}
+		timezoneName, _ := data["timezone"].(string)
+		location, err := time.LoadLocation(timezoneName)
+		if err != nil || timezoneName == "" {
+			return 0, false
+		}
+		rate, enabled := groupTimeRateAt(periods, now.In(location))
+		if !enabled {
+			return 0, false
+		}
+		if stacked, _ := data["recharge_rate_enabled"].(bool); stacked {
+			base *= rate
+		} else {
+			base = rate
+		}
 	}
 	base *= appliedPeak
 	if math.IsNaN(base) || math.IsInf(base, 0) {

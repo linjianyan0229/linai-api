@@ -52,16 +52,18 @@ func (h *AvailableChannelHandler) featureEnabled(c *gin.Context) bool {
 // 订阅视觉加深），并展示默认倍率与高峰倍率规则；用户专属倍率前端走
 // /groups/rates，和 API 密钥页面保持一致。
 type userAvailableGroup struct {
-	ID                 int64   `json:"id"`
-	Name               string  `json:"name"`
-	Platform           string  `json:"platform"`
-	SubscriptionType   string  `json:"subscription_type"`
-	RateMultiplier     float64 `json:"rate_multiplier"`
-	PeakRateEnabled    bool    `json:"peak_rate_enabled"`
-	PeakStart          string  `json:"peak_start"`
-	PeakEnd            string  `json:"peak_end"`
-	PeakRateMultiplier float64 `json:"peak_rate_multiplier"`
-	IsExclusive        bool    `json:"is_exclusive"`
+	ID                  int64                         `json:"id"`
+	Name                string                        `json:"name"`
+	Platform            string                        `json:"platform"`
+	SubscriptionType    string                        `json:"subscription_type"`
+	RateMultiplier      float64                       `json:"rate_multiplier"`
+	PeakRateEnabled     bool                          `json:"peak_rate_enabled"`
+	PeakStart           string                        `json:"peak_start"`
+	PeakEnd             string                        `json:"peak_end"`
+	TimeRatePeriods     []service.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
+	RechargeRateEnabled bool                          `json:"recharge_rate_enabled,omitempty"`
+	PeakRateMultiplier  float64                       `json:"peak_rate_multiplier"`
+	IsExclusive         bool                          `json:"is_exclusive"`
 
 	// 不对外输出；List 按请求语言把 Name 换成译文后丢弃。
 	i18n service.GroupI18n
@@ -264,17 +266,19 @@ func filterUserVisibleGroups(
 			continue
 		}
 		visible = append(visible, userAvailableGroup{
-			ID:                 g.ID,
-			Name:               g.Name,
-			i18n:               g.I18n,
-			Platform:           g.Platform,
-			SubscriptionType:   g.SubscriptionType,
-			RateMultiplier:     g.RateMultiplier,
-			PeakRateEnabled:    g.PeakRateEnabled,
-			PeakStart:          g.PeakStart,
-			PeakEnd:            g.PeakEnd,
-			PeakRateMultiplier: g.PeakRateMultiplier,
-			IsExclusive:        g.IsExclusive,
+			ID:                  g.ID,
+			Name:                g.Name,
+			i18n:                g.I18n,
+			Platform:            g.Platform,
+			SubscriptionType:    g.SubscriptionType,
+			RateMultiplier:      g.RateMultiplier,
+			PeakRateEnabled:     g.PeakRateEnabled,
+			PeakStart:           g.PeakStart,
+			PeakEnd:             g.PeakEnd,
+			TimeRatePeriods:     g.TimeRatePeriods,
+			RechargeRateEnabled: g.RechargeRateEnabled,
+			PeakRateMultiplier:  g.PeakRateMultiplier,
+			IsExclusive:         g.IsExclusive,
 		})
 	}
 	return visible

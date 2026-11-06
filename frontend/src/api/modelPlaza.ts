@@ -1,3 +1,4 @@
+import type { GroupTimeRatePeriod } from '@/types'
 /**
  * Model Plaza API（公开端点，可匿名访问）
  * 以分组为中心的模型价目：分组信息 + 模型渠道定价 + LiteLLM 官方参考价。
@@ -65,6 +66,8 @@ export interface ModelPlazaGroup {
   rate_multiplier: number
   /** 登录且管理员为该用户配了专属倍率时返回；生效倍率 = user_rate ?? rate_multiplier。 */
   user_rate_multiplier?: number
+  time_rate_periods?: GroupTimeRatePeriod[]
+  recharge_rate_enabled?: boolean
   peak_rate_enabled: boolean
   peak_start: string
   peak_end: string

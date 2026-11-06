@@ -55,6 +55,9 @@ func (Group) Fields() []ent.Field {
 		field.JSON("recharge_rate_tiers", []domain.GroupRechargeRateTier{}).
 			Default([]domain.GroupRechargeRateTier{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.JSON("time_rate_periods", []domain.GroupTimeRatePeriod{}).
+			Default([]domain.GroupTimeRatePeriod{}).
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		// 高峰时段倍率（added by migration 158）
 		field.Bool("peak_rate_enabled").
 			Default(false).

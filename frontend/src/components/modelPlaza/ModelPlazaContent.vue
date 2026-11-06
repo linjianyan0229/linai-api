@@ -63,6 +63,7 @@
 </template>
 
 <script setup lang="ts">
+import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
@@ -99,8 +100,9 @@ const descriptionHtml = computed(() => {
 })
 
 /** 生效倍率 = 用户专属倍率 ?? 分组默认倍率。 */
+const currentTimeRate = useGroupTimeRate()
 function effectiveRate(g: ModelPlazaGroup): number {
-  return g.user_rate_multiplier ?? g.rate_multiplier
+  return currentTimeRate(g, g.user_rate_multiplier ?? g.rate_multiplier)
 }
 
 const platforms = computed(() =>

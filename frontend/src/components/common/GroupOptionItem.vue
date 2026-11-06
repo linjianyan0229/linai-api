@@ -32,9 +32,10 @@
             <span class="font-bold">{{ userRateMultiplier }}x</span>
           </template>
           <template v-else>
-            {{ rateMultiplier }}x {{ t('admin.groups.rateLabel') }}
+            {{ timeRatePeriods?.length === 2 ? displayedRate : rateMultiplier }}x {{ t('admin.groups.rateLabel') }}
           </template>
         </span>
+        <span v-if="timeRatePeriods?.length === 2" class="text-xs text-primary-600 dark:text-primary-300" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
         <span
           v-if="hasPeakRate"
           class="inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
@@ -60,9 +61,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
+import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { useI18n } from 'vue-i18n'
 import GroupBadge from './GroupBadge.vue'
-import type { SubscriptionType, GroupPlatform } from '@/types'
+import type { SubscriptionType, GroupPlatform, GroupTimeRatePeriod } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 
@@ -74,6 +77,8 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null
+  timeRatePeriods?: GroupTimeRatePeriod[]
+  rechargeRateEnabled?: boolean
   peakRateEnabled?: boolean
   peakStart?: string
   peakEnd?: string
@@ -94,6 +99,7 @@ const props = withDefaults(defineProps<Props>(), {
 // Whether user has a custom rate different from default
 const hasCustomRate = computed(() => {
   return (
+    props.timeRatePeriods?.length !== 2 &&
     props.userRateMultiplier !== null &&
     props.userRateMultiplier !== undefined &&
     props.rateMultiplier !== undefined &&
@@ -102,6 +108,10 @@ const hasCustomRate = computed(() => {
 })
 
 const appStore = useAppStore()
+const currentTimeRate = useGroupTimeRate()
+const timeFields = computed(() => ({time_rate_periods:props.timeRatePeriods,recharge_rate_enabled:props.rechargeRateEnabled}))
+const displayedRate = computed(() => currentTimeRate(timeFields.value, props.userRateMultiplier ?? props.rateMultiplier ?? 1))
+const timeRateTitle = computed(() => formatGroupTimeRates(timeFields.value, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'))
 
 const hasPeakRate = computed(() => {
   return Boolean(props.peakRateEnabled && props.peakStart && props.peakEnd)

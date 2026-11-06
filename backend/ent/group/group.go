@@ -32,6 +32,8 @@ const (
 	FieldRateMultiplier = "rate_multiplier"
 	// FieldRechargeRateTiers holds the string denoting the recharge_rate_tiers field in the database.
 	FieldRechargeRateTiers = "recharge_rate_tiers"
+	// FieldTimeRatePeriods holds the string denoting the time_rate_periods field in the database.
+	FieldTimeRatePeriods = "time_rate_periods"
 	// FieldPeakRateEnabled holds the string denoting the peak_rate_enabled field in the database.
 	FieldPeakRateEnabled = "peak_rate_enabled"
 	// FieldPeakStart holds the string denoting the peak_start field in the database.
@@ -237,6 +239,7 @@ var Columns = []string{
 	FieldI18n,
 	FieldRateMultiplier,
 	FieldRechargeRateTiers,
+	FieldTimeRatePeriods,
 	FieldPeakRateEnabled,
 	FieldPeakStart,
 	FieldPeakEnd,
@@ -341,6 +344,8 @@ var (
 	DefaultRateMultiplier float64
 	// DefaultRechargeRateTiers holds the default value on creation for the "recharge_rate_tiers" field.
 	DefaultRechargeRateTiers []domain.GroupRechargeRateTier
+	// DefaultTimeRatePeriods holds the default value on creation for the "time_rate_periods" field.
+	DefaultTimeRatePeriods []domain.GroupTimeRatePeriod
 	// DefaultPeakRateEnabled holds the default value on creation for the "peak_rate_enabled" field.
 	DefaultPeakRateEnabled bool
 	// DefaultPeakStart holds the default value on creation for the "peak_start" field.
