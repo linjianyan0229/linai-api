@@ -287,11 +287,11 @@ const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
-  return subscription.group?.time_rate_periods?.length === 2 || hasPeakRate(subscription.group)
+  return Boolean(subscription.group?.time_rate_periods?.length) || hasPeakRate(subscription.group)
 }
 
 function subscriptionPeakRateLabel(subscription: UserSubscription): string {
-  if (subscription.group?.time_rate_periods?.length === 2) return formatGroupTimeRates(subscription.group, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
+  if (subscription.group?.time_rate_periods?.length) return formatGroupTimeRates(subscription.group)
   return formatPeakRateWindow(subscription.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 

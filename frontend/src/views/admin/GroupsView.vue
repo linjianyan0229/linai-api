@@ -265,7 +265,7 @@
             <span class="text-sm text-gray-700 dark:text-gray-300"
               >{{ value }}x</span
             >
-            <span v-if="row.time_rate_periods?.length === 2" class="ml-2 badge badge-primary" :title="formatGroupTimeRates(row, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')">{{ t('admin.groups.timeRates.title') }}</span>
+            <span v-if="row.time_rate_periods?.length" class="ml-2 badge badge-primary" :title="formatGroupTimeRates(row)">{{ t('admin.groups.timeRates.title') }}</span>
           </template>
 
           <template #cell-is_exclusive="{ value }">
@@ -1196,7 +1196,6 @@
           :model-value="createForm.time_rate_periods"
           :recharge-tiers="createForm.subscription_type === 'subscription' ? [] : createForm.recharge_rate_tiers"
           :base-rate="createForm.rate_multiplier"
-          :timezone="appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'"
           :legacy-enabled="createForm.peak_rate_enabled"
           @update:model-value="updateTimeRates(createForm, $event)"
         />
@@ -2817,7 +2816,6 @@
           :model-value="editForm.time_rate_periods"
           :recharge-tiers="editForm.subscription_type === 'subscription' ? [] : editForm.recharge_rate_tiers"
           :base-rate="editForm.rate_multiplier"
-          :timezone="appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'"
           :legacy-enabled="editForm.peak_rate_enabled"
           @update:model-value="updateTimeRates(editForm, $event)"
         />

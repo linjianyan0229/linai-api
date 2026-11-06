@@ -19,7 +19,7 @@
         <h3 class="font-medium text-gray-900 dark:text-white">{{ group.group_name }}</h3>
         <span class="text-sm font-semibold text-primary-600 dark:text-primary-400">{{ t('payment.groupRates.current', { level: group.level, rate: currentTimeRate({time_rate_periods:group.time_rate_periods,recharge_rate_enabled:true}, group.rate_multiplier) }) }}</span>
       </div>
-      <p v-if="group.time_rate_periods?.length === 2" class="mt-2 text-xs text-primary-600 dark:text-primary-300">{{ formatGroupTimeRates(group, timezone) }}</p>
+      <p v-if="group.time_rate_periods?.length" class="mt-2 text-xs text-primary-600 dark:text-primary-300">{{ formatGroupTimeRates(group) }}</p>
       <ol class="mt-3 grid grid-cols-3 gap-2">
         <li v-for="(tier, index) in group.tiers" :key="index" :aria-current="group.level === index + 1 ? 'step' : undefined"
           class="min-w-0 rounded-xl border p-3"
@@ -38,8 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useAppStore } from '@/stores/app'
+import { onMounted, ref } from 'vue'
 import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
 import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { useI18n } from 'vue-i18n'
@@ -47,8 +46,6 @@ import { getRechargeProgress, type UserRechargeProgress } from '@/api/groups'
 
 const { t } = useI18n()
 const currentTimeRate = useGroupTimeRate()
-const appStore = useAppStore()
-const timezone = computed(() => appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
 const progress = ref<UserRechargeProgress | null>(null)
 const loading = ref(false)
 const error = ref(false)

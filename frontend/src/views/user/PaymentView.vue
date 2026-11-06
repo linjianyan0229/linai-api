@@ -345,11 +345,11 @@ function getDaysRemaining(expiresAt: string): number {
 }
 
 function subscriptionHasPeakRate(sub: { group?: (PeakRateFields & GroupTimeRateFields) | null }): boolean {
-  return sub.group?.time_rate_periods?.length === 2 || hasPeakRate(sub.group)
+  return Boolean(sub.group?.time_rate_periods?.length) || hasPeakRate(sub.group)
 }
 
 function subscriptionPeakRateLabel(sub: { group?: (PeakRateFields & GroupTimeRateFields) | null }): string {
-  if (sub.group?.time_rate_periods?.length === 2) return formatGroupTimeRates(sub.group, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
+  if (sub.group?.time_rate_periods?.length) return formatGroupTimeRates(sub.group)
   return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 
@@ -805,11 +805,11 @@ const planValiditySuffix = computed(() => {
 })
 
 function planHasPeakRate(plan: SubscriptionPlan): boolean {
-  return plan.time_rate_periods?.length === 2 || hasPeakRate(plan)
+  return Boolean(plan.time_rate_periods?.length) || hasPeakRate(plan)
 }
 
 function planPeakRateLabel(plan: SubscriptionPlan): string {
-  if (plan.time_rate_periods?.length === 2) return formatGroupTimeRates(plan, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
+  if (plan.time_rate_periods?.length) return formatGroupTimeRates(plan)
   return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 

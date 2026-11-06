@@ -106,10 +106,10 @@ func buildKeyBillingInfo(apiKey *service.APIKey, resolvedRate float64, now time.
 		tz := timezone.Location().String()
 		response.Timezone = &tz
 	}
-	if len(apiKey.Group.TimeRatePeriods) == 2 {
+	if len(apiKey.Group.TimeRatePeriods) >= 2 {
 		response.TimeRatePeriods = apiKey.Group.TimeRatePeriods
 		response.RechargeRateEnabled = len(apiKey.Group.RechargeRateTiers) == 3
-		tz := timezone.Location().String()
+		tz := service.GroupTimeRateTimezone
 		response.Timezone = &tz
 	}
 	return response

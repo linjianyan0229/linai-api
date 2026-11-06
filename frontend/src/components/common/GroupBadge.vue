@@ -20,7 +20,7 @@
         {{ labelText }}
       </template>
     </span>
-    <span v-if="timeRatePeriods?.length === 2 && showRate" :class="peakRateClass" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
+    <span v-if="timeRatePeriods?.length && showRate" :class="peakRateClass" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
     <span v-if="hasPeakRate" :class="peakRateClass" :title="peakRateTitle">
       {{ peakRateText }}
     </span>
@@ -76,13 +76,13 @@ const { t } = useI18n()
 const currentTimeRate = useGroupTimeRate()
 const timeFields = computed(() => ({time_rate_periods:props.timeRatePeriods,recharge_rate_enabled:props.rechargeRateEnabled}))
 const displayedRate = computed(() => currentTimeRate(timeFields.value, props.userRateMultiplier ?? props.rateMultiplier ?? 1))
-const timeRateTitle = computed(() => formatGroupTimeRates(timeFields.value, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai'))
+const timeRateTitle = computed(() => formatGroupTimeRates(timeFields.value))
 const isSubscription = computed(() => props.subscriptionType === 'subscription')
 
 // 是否有专属倍率（且与默认倍率不同）
 const hasCustomRate = computed(() => {
   return (
-    props.timeRatePeriods?.length !== 2 &&
+    !props.timeRatePeriods?.length &&
     props.userRateMultiplier !== null &&
     props.userRateMultiplier !== undefined &&
     props.rateMultiplier !== undefined &&
@@ -123,7 +123,7 @@ const showLabel = computed(() => {
 
 // Label text
 const labelText = computed(() => {
-  const rateLabel = props.rateMultiplier !== undefined ? `${props.timeRatePeriods?.length === 2 ? displayedRate.value : props.rateMultiplier}x` : ''
+  const rateLabel = props.rateMultiplier !== undefined ? `${props.timeRatePeriods?.length ? displayedRate.value : props.rateMultiplier}x` : ''
   if (isSubscription.value && !props.alwaysShowRate) {
     // 如果有剩余天数，显示天数
     if (props.daysRemaining !== null && props.daysRemaining !== undefined) {

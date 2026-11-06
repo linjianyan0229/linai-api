@@ -309,3 +309,16 @@ func TestGatewayHandlerKeyBillingInfoSharesBillingResolverCacheByPlatform(t *tes
 		})
 	}
 }
+
+func TestKeyBillingMultiplePeriodsUseShanghai(t *testing.T) {
+	key := &service.APIKey{Group: &service.Group{RateMultiplier: 0.8, TimeRatePeriods: []service.GroupTimeRatePeriod{
+		{Kind: "peak", Start: "08:00", End: "12:00", RateMultiplier: 1.2},
+		{Kind: "valley", Start: "12:00", End: "18:00", RateMultiplier: 0.6},
+		{Kind: "peak", Start: "18:00", End: "22:00", RateMultiplier: 1.1},
+		{Kind: "valley", Start: "22:00", End: "08:00", RateMultiplier: 0.5},
+	}}}
+	got := buildKeyBillingInfo(key, 0.8, time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC))
+	require.Equal(t, "Asia/Shanghai", *got.Timezone)
+	require.Len(t, got.TimeRatePeriods, 4)
+	require.InDelta(t, 1.2, got.EffectiveRateMultiplier, 1e-9)
+}

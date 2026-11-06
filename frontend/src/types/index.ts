@@ -576,6 +576,7 @@ export interface GroupLocaleText {
 export type GroupI18n = Record<string, GroupLocaleText>
 
 export interface GroupTimeRatePeriod {
+  kind?: 'peak' | 'valley'
   start: string
   end: string
   rate_multiplier: number

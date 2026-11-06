@@ -19,7 +19,7 @@ func TestGroupRechargeRatePersistence(t *testing.T) {
 	tx := testEntTx(t)
 	repo := newGroupRepositoryWithSQL(tx.Client(), tx)
 	tiers := []service.GroupRechargeRateTier{{MinAmount: 0, RateMultiplier: 1}, {MinAmount: 100, RateMultiplier: 0.75}, {MinAmount: 500, RateMultiplier: 0.5}}
-	group := &service.Group{Name: "recharge-roundtrip", Platform: service.PlatformOpenAI, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, RechargeRateTiers: tiers, TimeRatePeriods: []service.GroupTimeRatePeriod{{Start: "08:00", End: "20:00", RateMultiplier: 1.2}, {Start: "20:00", End: "08:00", RateMultiplier: 0.6}}}
+	group := &service.Group{Name: "recharge-roundtrip", Platform: service.PlatformOpenAI, RateMultiplier: 1, Status: service.StatusActive, SubscriptionType: service.SubscriptionTypeStandard, RechargeRateTiers: tiers, TimeRatePeriods: []service.GroupTimeRatePeriod{{Kind: "peak", Start: "08:00", End: "12:00", RateMultiplier: 1.2}, {Kind: "valley", Start: "12:00", End: "18:00", RateMultiplier: 0.6}, {Kind: "peak", Start: "18:00", End: "22:00", RateMultiplier: 1.1}, {Kind: "valley", Start: "22:00", End: "08:00", RateMultiplier: 0.5}}}
 	require.NoError(t, repo.Create(ctx, group))
 	got, err := repo.GetByID(ctx, group.ID)
 	require.NoError(t, err)

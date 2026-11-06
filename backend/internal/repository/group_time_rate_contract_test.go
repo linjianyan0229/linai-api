@@ -27,6 +27,9 @@ CREATE TEMP TABLE auth_cache_invalidation_outbox(cache_key TEXT) ON COMMIT DROP;
 	migration, err := os.ReadFile("../../migrations/253_group_time_rate_periods.sql")
 	require.NoError(t, err)
 	exec(string(migration))
+	migration, err = os.ReadFile("../../migrations/254_group_multiple_time_rates.sql")
+	require.NoError(t, err)
+	exec(string(migration))
 	exec(`INSERT INTO groups(id) VALUES(1);
 INSERT INTO api_keys VALUES(1,'time-rate-contract-key',NULL),(1,'deleted-key',NOW()),(2,'other-group',NULL);`)
 	var periods string
@@ -52,4 +55,9 @@ INSERT INTO api_keys VALUES(1,'time-rate-contract-key',NULL),(1,'deleted-key',NO
 	exec(`UPDATE groups SET time_rate_periods='[]' WHERE id=1`)
 	require.NoError(t, tx.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM auth_cache_invalidation_outbox`).Scan(&count))
 	require.Equal(t, 3, count)
+	exec(`UPDATE groups SET time_rate_periods='[{"kind":"peak","start":"08:00","end":"12:00","rate_multiplier":1.2},{"kind":"valley","start":"12:00","end":"18:00","rate_multiplier":0.6},{"kind":"peak","start":"18:00","end":"22:00","rate_multiplier":1.1},{"kind":"valley","start":"22:00","end":"08:00","rate_multiplier":0.5}]' WHERE id=1`)
+	require.NoError(t, tx.QueryRowContext(context.Background(), `SELECT jsonb_array_length(time_rate_periods),time_rate_periods->0->>'kind' FROM groups WHERE id=1`).Scan(&count, &periods))
+	require.Equal(t, 4, count)
+	require.Equal(t, "peak", periods)
+
 }

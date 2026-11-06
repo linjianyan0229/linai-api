@@ -2,15 +2,27 @@ package service
 
 import (
 	"math"
+	"sort"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/shopspring/decimal"
 )
 
 type GroupTimeRatePeriod = domain.GroupTimeRatePeriod
+
+const GroupTimeRateTimezone = "Asia/Shanghai"
+const MaxGroupTimeRatePeriods = 48
+
+var groupTimeRateLocation = func() *time.Location {
+	location, err := time.LoadLocation(GroupTimeRateTimezone)
+	if err != nil {
+		return time.FixedZone(GroupTimeRateTimezone, 8*60*60)
+	}
+	return location
+}()
 
 func ValidateGroupTimeRatePeriods(periods []GroupTimeRatePeriod, legacyPeakEnabled bool) error {
 	if len(periods) == 0 {
@@ -22,18 +34,21 @@ func ValidateGroupTimeRatePeriods(periods []GroupTimeRatePeriod, legacyPeakEnabl
 	if legacyPeakEnabled {
 		return invalid("daily peak/off-peak rates cannot be combined with legacy subscription peak pricing")
 	}
-	if len(periods) != 2 {
-		return invalid("exactly two complementary daily periods are required")
+	if len(periods) < 2 || len(periods) > MaxGroupTimeRatePeriods {
+		return invalid("between 2 and 48 daily periods are required")
 	}
-	var starts, ends [2]int
-	for i, period := range periods {
-		var ok bool
-		starts[i], ok = parseMinutes(period.Start)
+	type interval struct{ start, end int }
+	intervals := make([]interval, 0, len(periods)+1)
+	for _, period := range periods {
+		if period.Kind != "" && period.Kind != "peak" && period.Kind != "valley" {
+			return invalid("period kind must be peak or valley")
+		}
+		start, ok := parseMinutes(period.Start)
 		if !ok {
 			return invalid("period start must be HH:MM")
 		}
-		ends[i], ok = parseMinutes(period.End)
-		if !ok || starts[i] == ends[i] {
+		end, ok := parseMinutes(period.End)
+		if !ok || start == end {
 			return invalid("period end must be HH:MM and different from its start")
 		}
 		rate := period.RateMultiplier
@@ -41,9 +56,25 @@ func ValidateGroupTimeRatePeriods(periods []GroupTimeRatePeriod, legacyPeakEnabl
 			!decimal.NewFromFloat(rate).Equal(decimal.NewFromFloat(rate).Round(4)) {
 			return invalid("time rates must be between 0 and 999999.9999 with at most four decimal places")
 		}
+		if start < end {
+			intervals = append(intervals, interval{start, end})
+		} else {
+			intervals = append(intervals, interval{start, 1440})
+			if end > 0 {
+				intervals = append(intervals, interval{0, end})
+			}
+		}
 	}
-	if starts[0] != ends[1] || ends[0] != starts[1] {
-		return invalid("the two daily periods must cover 24 hours without gaps or overlaps")
+	sort.Slice(intervals, func(i, j int) bool { return intervals[i].start < intervals[j].start })
+	cursor := 0
+	for _, span := range intervals {
+		if span.start != cursor {
+			return invalid("daily periods must cover 24 hours without gaps or overlaps")
+		}
+		cursor = span.end
+	}
+	if cursor != 1440 {
+		return invalid("daily periods must cover 24 hours without gaps or overlaps")
 	}
 	return nil
 }
@@ -51,10 +82,10 @@ func ValidateGroupTimeRatePeriods(periods []GroupTimeRatePeriod, legacyPeakEnabl
 // TimeRateAt selects a period for this request. It is never cached: a request
 // crossing a time boundary keeps its supplied pricing instant throughout billing.
 func (g *Group) TimeRateAt(now time.Time) (float64, bool) {
-	if g == nil || len(g.TimeRatePeriods) != 2 {
+	if g == nil || len(g.TimeRatePeriods) < 2 {
 		return 1, false
 	}
-	local := now.In(timezone.Location())
+	local := now.In(groupTimeRateLocation)
 	return groupTimeRateAt(g.TimeRatePeriods, local)
 }
 

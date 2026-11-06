@@ -483,7 +483,7 @@ describe('GroupsView duplicate action', () => {
     }
   })
 
-  it('preserves a legacy peak rule until the new two-period schedule is explicitly enabled', async () => {
+  it('preserves a legacy peak rule until the new daily schedule is explicitly enabled', async () => {
     const legacy = {...sourceGroup, subscription_type:'subscription' as const, peak_rate_enabled:true, peak_start:'14:00', peak_end:'18:00', peak_rate_multiplier:1.5}
     listGroups.mockResolvedValue({items:[legacy],total:1,page:1,page_size:20,pages:1})
     updateGroup.mockResolvedValue(legacy)
@@ -498,7 +498,7 @@ describe('GroupsView duplicate action', () => {
     await wrapper.get('[data-testid="time-rate-0"]').setValue('1.2')
     await wrapper.get('[data-testid="time-rate-1"]').setValue('0.6')
     await wrapper.get('#edit-group-form').trigger('submit'); await flushPromises()
-    expect(updateGroup).toHaveBeenLastCalledWith(42, expect.objectContaining({peak_rate_enabled:false,time_rate_periods:[{start:'08:00',end:'20:00',rate_multiplier:1.2},{start:'20:00',end:'08:00',rate_multiplier:0.6}]}))
+    expect(updateGroup).toHaveBeenLastCalledWith(42, expect.objectContaining({peak_rate_enabled:false,time_rate_periods:[{kind:'peak',start:'08:00',end:'20:00',rate_multiplier:1.2},{kind:'valley',start:'20:00',end:'08:00',rate_multiplier:0.6}]}))
     wrapper.unmount()
   })
 

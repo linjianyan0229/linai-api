@@ -9,6 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func groupTimeAt(hour, minute int) time.Time {
+	return time.Date(2026, 11, 6, hour, minute, 0, 0, groupTimeRateLocation)
+}
+
 func testGroupTimePeriods() []GroupTimeRatePeriod {
 	return []GroupTimeRatePeriod{{Start: "08:00", End: "20:00", RateMultiplier: 1.2}, {Start: "20:00", End: "08:00", RateMultiplier: 0.6}}
 }
@@ -42,15 +46,15 @@ func TestGroupTimeRateBoundariesAndFormula(t *testing.T) {
 	}{
 		{0, 0, 0.6}, {7, 59, 0.6}, {8, 0, 1.2}, {19, 59, 1.2}, {20, 0, 0.6}, {23, 59, 0.6},
 	} {
-		require.InDelta(t, tc.want, g.TimeAdjustedRate(0.8, at(tc.hour, tc.minute)), 1e-9)
+		require.InDelta(t, tc.want, g.TimeAdjustedRate(0.8, groupTimeAt(tc.hour, tc.minute)), 1e-9)
 	}
-	// Caller-local timezone must not change the server's pricing instant.
-	require.InDelta(t, 0.6, g.TimeAdjustedRate(0.8, at(7, 59).In(mustLoad("Asia/Shanghai"))), 1e-9)
+	// Caller-local timezone must not change the Shanghai pricing instant.
+	require.InDelta(t, 0.6, g.TimeAdjustedRate(0.8, groupTimeAt(7, 59).In(time.UTC)), 1e-9)
 	g.RechargeRateTiers = testRechargeTiers()
-	require.InDelta(t, 0.75*1.2, g.TimeAdjustedRate(0.75, at(8, 0)), 1e-9)
-	require.InDelta(t, 0.5*0.6, g.TimeAdjustedRate(0.5, at(20, 0)), 1e-9)
+	require.InDelta(t, 0.75*1.2, g.TimeAdjustedRate(0.75, groupTimeAt(8, 0)), 1e-9)
+	require.InDelta(t, 0.5*0.6, g.TimeAdjustedRate(0.5, groupTimeAt(20, 0)), 1e-9)
 	g.TimeRatePeriods = nil
-	require.Equal(t, 0.75, g.TimeAdjustedRate(0.75, at(8, 0)))
+	require.Equal(t, 0.75, g.TimeAdjustedRate(0.75, groupTimeAt(8, 0)))
 }
 
 func TestGroupTimeRateBillingAndSnapshot(t *testing.T) {
@@ -68,7 +72,7 @@ func TestGroupTimeRateBillingAndSnapshot(t *testing.T) {
 	for _, tc := range []struct {
 		instant time.Time
 		want    float64
-	}{{at(19, 59), 0.9}, {at(20, 0), 0.45}} {
+	}{{groupTimeAt(19, 59), 0.9}, {groupTimeAt(20, 0), 0.45}} {
 		text, image, instant := gw.recordUsageMultipliers(context.Background(), restored, key.User, tc.instant)
 		require.InDelta(t, tc.want, text, 1e-9)
 		require.InDelta(t, tc.want, image, 1e-9)
@@ -77,7 +81,7 @@ func TestGroupTimeRateBillingAndSnapshot(t *testing.T) {
 	}
 	// Independent media rates remain independent from daily group prices.
 	restored.Group.ImageRateIndependent, restored.Group.ImageRateMultiplier = true, 0.4
-	text, image, _ := gw.recordUsageMultipliers(context.Background(), restored, key.User, at(8, 0))
+	text, image, _ := gw.recordUsageMultipliers(context.Background(), restored, key.User, groupTimeAt(8, 0))
 	require.InDelta(t, 0.9, text, 1e-9)
 	require.Equal(t, 0.4, image)
 }
@@ -97,12 +101,48 @@ func TestGroupTimeRateUpstreamProbe(t *testing.T) {
 
 func TestGroupTimeRateProfitPreview(t *testing.T) {
 	group := &Group{ID: 8, Platform: PlatformOpenAI, RateMultiplier: 0.8, RechargeRateTiers: testRechargeTiers(), TimeRatePeriods: testGroupTimePeriods()}
-	report := PreviewProfitAdmission([]ProfitPreviewGroupInput{{Group: group}}, at(8, 0))
+	report := PreviewProfitAdmission([]ProfitPreviewGroupInput{{Group: group}}, groupTimeAt(8, 0))
 	require.Len(t, report, 1)
 	require.InDelta(t, 1.2, report[0].DefaultD, 1e-9)
 	require.InDelta(t, 0.6, report[0].MinEffectiveD, 1e-9)
 	group.RechargeRateTiers = nil
-	report = PreviewProfitAdmission([]ProfitPreviewGroupInput{{Group: group, UserOverrides: map[int64]float64{1: 0.3}}}, at(8, 0))
+	report = PreviewProfitAdmission([]ProfitPreviewGroupInput{{Group: group, UserOverrides: map[int64]float64{1: 0.3}}}, groupTimeAt(8, 0))
 	require.InDelta(t, 1.2, report[0].DefaultD, 1e-9)
 	require.InDelta(t, 1.2, report[0].MinEffectiveD, 1e-9)
+}
+
+func TestGroupTimeRateMultipleWindows(t *testing.T) {
+	periods := []GroupTimeRatePeriod{
+		{Kind: "peak", Start: "08:00", End: "12:00", RateMultiplier: 1.2},
+		{Kind: "valley", Start: "12:00", End: "18:00", RateMultiplier: 0.6},
+		{Kind: "peak", Start: "18:00", End: "22:00", RateMultiplier: 1.1},
+		{Kind: "valley", Start: "22:00", End: "08:00", RateMultiplier: 0.5},
+	}
+	require.NoError(t, ValidateGroupTimeRatePeriods(periods, false))
+	group := &Group{RateMultiplier: 0.8, TimeRatePeriods: periods}
+	for _, tc := range []struct {
+		hour, minute int
+		want         float64
+	}{{7, 59, 0.5}, {8, 0, 1.2}, {12, 0, 0.6}, {18, 0, 1.1}, {22, 0, 0.5}, {0, 0, 0.5}} {
+		require.InDelta(t, tc.want, group.TimeAdjustedRate(0.8, groupTimeAt(tc.hour, tc.minute).UTC()), 1e-9)
+	}
+	require.InDelta(t, 1.2, group.TimeAdjustedRate(0.8, time.Date(2026, 11, 6, 0, 0, 0, 0, time.UTC)), 1e-9)
+	group.RechargeRateTiers = testRechargeTiers()
+	require.InDelta(t, 0.75*1.1, group.TimeAdjustedRate(0.75, groupTimeAt(18, 0)), 1e-9)
+	data := map[string]any{"billing_scope": "token", "resolved_rate_multiplier": 0.75, "peak_rate_enabled": false, "timezone": "Asia/Shanghai", "time_rate_periods": periods, "recharge_rate_enabled": true}
+	rate, ok := upstreamBillingRateAt(data, groupTimeAt(18, 0).UTC())
+	require.True(t, ok)
+	require.InDelta(t, 0.825, rate, 1e-9)
+	// Older upstreams still use the timezone reported in their own billing contract.
+	data["timezone"] = "UTC"
+	rate, ok = upstreamBillingRateAt(data, groupTimeAt(18, 0).UTC())
+	require.True(t, ok)
+	require.InDelta(t, 0.9, rate, 1e-9)
+	for _, bad := range []string{"11:00", "13:00"} {
+		clone := append([]GroupTimeRatePeriod(nil), periods...)
+		clone[1].Start = bad
+		require.Error(t, ValidateGroupTimeRatePeriods(clone, false))
+	}
+	periods[0].Kind = "unknown"
+	require.Error(t, ValidateGroupTimeRatePeriods(periods, false))
 }

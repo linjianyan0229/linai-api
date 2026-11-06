@@ -160,10 +160,10 @@ const appStore = useAppStore()
 const currentTimeRate = useGroupTimeRate()
 const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
 
-const hasPeakRate = computed(() => props.plan.time_rate_periods?.length === 2 || groupHasPeakRate(props.plan))
+const hasPeakRate = computed(() => Boolean(props.plan.time_rate_periods?.length) || groupHasPeakRate(props.plan))
 
 const peakRateDisplay = computed(() => {
-  if (props.plan.time_rate_periods?.length === 2) return formatGroupTimeRates(props.plan, appStore.cachedPublicSettings?.server_timezone || 'Asia/Shanghai')
+  if (props.plan.time_rate_periods?.length) return formatGroupTimeRates(props.plan)
   return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 })
 

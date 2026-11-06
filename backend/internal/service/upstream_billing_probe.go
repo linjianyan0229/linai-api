@@ -908,7 +908,7 @@ func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
 	if raw, exists := data["time_rate_periods"]; exists {
 		encoded, err := json.Marshal(raw)
 		var periods []GroupTimeRatePeriod
-		if err != nil || json.Unmarshal(encoded, &periods) != nil || len(periods) != 2 || ValidateGroupTimeRatePeriods(periods, false) != nil {
+		if err != nil || json.Unmarshal(encoded, &periods) != nil || len(periods) < 2 || ValidateGroupTimeRatePeriods(periods, false) != nil {
 			return 0, false
 		}
 		timezoneName, _ := data["timezone"].(string)

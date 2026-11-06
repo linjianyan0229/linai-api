@@ -2,14 +2,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import GroupTimeRateEditor from '../GroupTimeRateEditor.vue'
-import { defaultGroupTimeRates } from '@/utils/groupTimeRates'
+import { defaultGroupTimeRates, validGroupTimeRates } from '@/utils/groupTimeRates'
 import { defaultGroupRechargeRateTiers } from '@/utils/groupRechargeRates'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, values?: object) => `${key} ${JSON.stringify(values ?? {})}` }) }))
 
 describe('GroupTimeRateEditor', () => {
   it('enables a neutral schedule and keeps both periods connected across midnight', async () => {
-    const Host = defineComponent({ components: { GroupTimeRateEditor }, setup: () => ({ periods: ref(defaultGroupTimeRates(0.8)) }), template: '<GroupTimeRateEditor v-model="periods" :base-rate="0.8" timezone="Asia/Shanghai" />' })
+    const Host = defineComponent({ components: { GroupTimeRateEditor }, setup: () => ({ periods: ref(defaultGroupTimeRates(0.8)) }), template: '<GroupTimeRateEditor v-model="periods" :base-rate="0.8" />' })
     const wrapper = mount(Host)
     await wrapper.get('[data-testid="time-start-0"]').setValue('22:00')
     await wrapper.get('[data-testid="time-end-0"]').setValue('06:00')
@@ -26,10 +26,26 @@ describe('GroupTimeRateEditor', () => {
   })
 
   it('shows level × time coefficient previews when recharge levels are enabled', async () => {
-    const wrapper = mount(GroupTimeRateEditor, { props: { modelValue: [{ start: '08:00', end: '20:00', rate_multiplier: 1.2 }, { start: '20:00', end: '08:00', rate_multiplier: 0.6 }], rechargeTiers: defaultGroupRechargeRateTiers(), baseRate: 0.8, timezone: 'UTC' } })
+    const wrapper = mount(GroupTimeRateEditor, { props: { modelValue: [{ start: '08:00', end: '20:00', rate_multiplier: 1.2 }, { start: '20:00', end: '08:00', rate_multiplier: 0.6 }], rechargeTiers: defaultGroupRechargeRateTiers(), baseRate: 0.8 } })
     await flushPromises()
-    expect(wrapper.text()).toContain('"level":2,"peak":0.9,"valley":0.45')
+    expect(wrapper.text()).toContain('"level":2,"rate":0.9')
     expect(wrapper.text()).toContain('admin.groups.timeRates.stacked')
     wrapper.unmount()
   })
+  it('adds both kinds and edits or removes a window without leaving gaps', async () => {
+    const Host = defineComponent({ components: {GroupTimeRateEditor}, setup:()=>({periods:ref(defaultGroupTimeRates(0.8))}), template:'<GroupTimeRateEditor v-model="periods" :base-rate="0.8" />' })
+    const wrapper = mount(Host)
+    await wrapper.get('[data-testid="add-time-peak"]').trigger('click')
+    expect(wrapper.findAll('[data-testid^="time-period-"]')).toHaveLength(4)
+    await wrapper.get('[data-testid="add-time-valley"]').trigger('click')
+    expect(wrapper.findAll('[data-testid^="time-period-"]')).toHaveLength(6)
+    await wrapper.get('[data-testid="time-start-2"]').setValue('23:00')
+    expect(wrapper.get<HTMLInputElement>('[data-testid="time-end-1"]').element.value).toBe('23:00')
+    await wrapper.get('[data-testid="remove-time-2"]').trigger('click')
+    expect(wrapper.findAll('[data-testid^="time-period-"]')).toHaveLength(5)
+    expect(validGroupTimeRates(wrapper.findComponent(GroupTimeRateEditor).props('modelValue'))).toBe(true)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
 })

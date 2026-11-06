@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 26 // v26: daily time rates and recharge-tier configuration
+const apiKeyAuthSnapshotVersion = 27 // v27: multiple peak/off-peak periods in Asia/Shanghai
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
