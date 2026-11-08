@@ -169,6 +169,9 @@
                   :subscription-type="row.group.subscription_type"
                   :rate-multiplier="row.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[row.group.id]"
+                  :dynamic-rate-enabled="row.group.dynamic_rate_enabled"
+                  :dynamic-rate-min="row.group.dynamic_rate_min"
+                  :dynamic-rate-max="row.group.dynamic_rate_max"
                   :time-rate-periods="row.group.time_rate_periods"
                   :recharge-rate-enabled="row.group.recharge_rate_tiers?.length === 3"
                   :peak-rate-enabled="row.group.peak_rate_enabled"
@@ -557,6 +560,9 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :dynamic-rate-enabled="(option as unknown as GroupOption).dynamicRateEnabled"
+                :dynamic-rate-min="(option as unknown as GroupOption).dynamicRateMin"
+                :dynamic-rate-max="(option as unknown as GroupOption).dynamicRateMax"
                 :time-rate-periods="(option as unknown as GroupOption).timeRatePeriods"
                 :recharge-rate-enabled="(option as unknown as GroupOption).rechargeRateEnabled"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
@@ -573,6 +579,9 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :dynamic-rate-enabled="(option as unknown as GroupOption).dynamicRateEnabled"
+                :dynamic-rate-min="(option as unknown as GroupOption).dynamicRateMin"
+                :dynamic-rate-max="(option as unknown as GroupOption).dynamicRateMax"
                 :time-rate-periods="(option as unknown as GroupOption).timeRatePeriods"
                 :recharge-rate-enabled="(option as unknown as GroupOption).rechargeRateEnabled"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
@@ -1127,6 +1136,9 @@
               :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
+              :dynamic-rate-enabled="option.dynamicRateEnabled"
+              :dynamic-rate-min="option.dynamicRateMin"
+              :dynamic-rate-max="option.dynamicRateMax"
               :time-rate-periods="option.timeRatePeriods"
                 :recharge-rate-enabled="option.rechargeRateEnabled"
                 :peak-rate-enabled="option.peakRateEnabled"
@@ -1202,6 +1214,9 @@ interface GroupOption {
   description: string | null
   rate: number
   userRate: number | null
+  dynamicRateEnabled?: boolean
+  dynamicRateMin?: number | null
+  dynamicRateMax?: number | null
   timeRatePeriods?: import('@/types').GroupTimeRatePeriod[]
   rechargeRateEnabled?: boolean
   peakRateEnabled: boolean
@@ -1471,6 +1486,9 @@ const groupOptions = computed(() =>
     description: group.description,
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
+    dynamicRateEnabled: group.dynamic_rate_enabled,
+    dynamicRateMin: group.dynamic_rate_min,
+    dynamicRateMax: group.dynamic_rate_max,
     timeRatePeriods: group.time_rate_periods,
     rechargeRateEnabled: group.recharge_rate_tiers?.length === 3,
     peakRateEnabled: group.peak_rate_enabled,

@@ -15,6 +15,9 @@ export interface UserAvailableGroup {
   subscription_type: string
   /** 分组默认倍率。用户专属倍率（若有）通过 /groups/rates 获取后在前端 join。 */
   rate_multiplier: number
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_enabled?: boolean
   peak_rate_enabled: boolean

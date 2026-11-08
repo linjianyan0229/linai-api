@@ -189,6 +189,8 @@ type CreateGroupRequest struct {
 	Description               string                          `json:"description"`
 	I18n                      service.GroupI18n               `json:"i18n"` // 名称与描述的界面语言译文
 	Platform                  string                          `json:"platform" binding:"omitempty,group_platform"`
+	DynamicRateEnabled        bool                            `json:"dynamic_rate_enabled"`
+	DynamicRateFactor         float64                         `json:"dynamic_rate_factor"`
 	TimeRatePeriods           []service.GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers         []service.GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	RateMultiplier            float64                         `json:"rate_multiplier"`
@@ -267,6 +269,8 @@ type UpdateGroupRequest struct {
 	Description               *string                          `json:"description"`
 	I18n                      *service.GroupI18n               `json:"i18n"` // 缺省不修改，传入则整体替换
 	Platform                  string                           `json:"platform" binding:"omitempty,group_platform"`
+	DynamicRateEnabled        *bool                            `json:"dynamic_rate_enabled"`
+	DynamicRateFactor         *float64                         `json:"dynamic_rate_factor"`
 	TimeRatePeriods           *[]service.GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers         *[]service.GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	RateMultiplier            *float64                         `json:"rate_multiplier"`
@@ -678,6 +682,8 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		DynamicRateEnabled:              req.DynamicRateEnabled,
+		DynamicRateFactor:               req.DynamicRateFactor,
 		TimeRatePeriods:                 req.TimeRatePeriods,
 		RechargeRateTiers:               req.RechargeRateTiers,
 		IsExclusive:                     req.IsExclusive,
@@ -827,6 +833,8 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		I18n:                            req.I18n,
 		Platform:                        req.Platform,
 		RateMultiplier:                  req.RateMultiplier,
+		DynamicRateEnabled:              req.DynamicRateEnabled,
+		DynamicRateFactor:               req.DynamicRateFactor,
 		TimeRatePeriods:                 req.TimeRatePeriods,
 		RechargeRateTiers:               req.RechargeRateTiers,
 		IsExclusive:                     req.IsExclusive,

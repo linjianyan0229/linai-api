@@ -122,7 +122,9 @@ type openAIProfitControlGate struct {
 	// platform 是利润配置所在分组的平台，用于按平台观测门是否真实生效。
 	platform string
 	// threshold = D(pricingAt) × (1 − margin − buffer)，账号倍率必须 <= 它。
-	threshold float64
+	threshold     float64
+	dynamicFactor float64
+	dynamicMargin float64
 	// pricingAt 是本请求的统一定价时刻（D 侧）。
 	pricingAt time.Time
 }
@@ -265,7 +267,14 @@ func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Contex
 		groupID:   *groupID,
 		platform:  group.Platform,
 		threshold: threshold,
-		pricingAt: pricingAt,
+		dynamicFactor: func() float64 {
+			if billingGroup.DynamicRateEnabled {
+				return billingGroup.DynamicRateFactor
+			}
+			return 0
+		}(),
+		dynamicMargin: 1 - deduction,
+		pricingAt:     pricingAt,
 	}
 }
 
@@ -300,6 +309,9 @@ func ContextWithSelectionProfitGate(ctx context.Context, sel *AccountSelectionRe
 // openAIProfitControlVetoReason 报告利润门是否否决该账号。ctx 中没有门
 // （分组未启用利润控制或本请求跳门）或账号为 nil 时一律放行。
 func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool, string) {
+	if !dynamicAccountEligible(ctx, account) {
+		return true, "dynamic_rate_unavailable"
+	}
 	gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 	if gate == nil || account == nil {
 		return false, ""
@@ -312,8 +324,16 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 		return true, openAIProfitFilterReasonInvalidAccountRate
 	}
 	upstream := *account.RateMultiplier
-	if profitControlOverThreshold(upstream, gate.threshold) {
-		openAIProfitControlObserverInstance.recordVeto(gate.groupID, gate.platform, gate.threshold, openAIProfitFilterReasonThreshold)
+	threshold := gate.threshold
+	if gate.dynamicFactor > 0 {
+		quotedRate, ok := DynamicUpstreamBillingRate(account, time.Now())
+		if !ok {
+			return true, "dynamic_rate_unavailable"
+		}
+		threshold = quotedRate * gate.dynamicFactor * gate.dynamicMargin
+	}
+	if profitControlOverThreshold(upstream, threshold) {
+		openAIProfitControlObserverInstance.recordVeto(gate.groupID, gate.platform, threshold, openAIProfitFilterReasonThreshold)
 		return true, openAIProfitFilterReasonThreshold
 	}
 	return false, ""

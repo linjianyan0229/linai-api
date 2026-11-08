@@ -50,7 +50,7 @@
                   {{ subscription.group.description }}
                 </p>
                 <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>{{ t('payment.planCard.rate') }}: ×{{ currentTimeRate(subscription.group || {}, subscription.group?.rate_multiplier ?? 1) }}</span>
+                  <span>{{ t('payment.planCard.rate') }}: {{ subscription.group?.dynamic_rate_enabled ? t('admin.groups.dynamicRates.label') : `×${currentTimeRate(subscription.group || {}, subscription.group?.rate_multiplier ?? 1)}` }}</span>
                   <span v-if="subscriptionHasPeakRate(subscription)" class="text-amber-700 dark:text-amber-300">
                     {{ t('payment.planCard.peakRate') }}: {{ subscriptionPeakRateLabel(subscription) }}
                   </span>
@@ -287,6 +287,7 @@ const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
+  if (subscription.group?.dynamic_rate_enabled) return false
   return Boolean(subscription.group?.time_rate_periods?.length) || hasPeakRate(subscription.group)
 }
 

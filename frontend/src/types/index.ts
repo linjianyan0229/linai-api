@@ -596,6 +596,9 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
@@ -656,6 +659,7 @@ export interface Group {
 }
 
 export interface AdminGroup extends Group {
+  dynamic_rate_factor?: number
   // 管理端的 name / description 始终是原字段，各语言译文另放在 i18n 里
   i18n?: GroupI18n
   force_openai_fast: boolean
@@ -822,6 +826,7 @@ export interface UpdateApiKeyRequest {
 }
 
 export interface CreateGroupRequest {
+  dynamic_rate_factor?: number
   name: string
   description?: string | null
   i18n?: GroupI18n
@@ -886,11 +891,15 @@ export interface CreateGroupRequest {
   require_privacy_set?: boolean
   // 从指定分组复制账号
   copy_accounts_from_group_ids?: number[]
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
 }
 
 export interface UpdateGroupRequest {
+  dynamic_rate_factor?: number
   name?: string
   description?: string | null
   i18n?: GroupI18n
@@ -955,6 +964,9 @@ export interface UpdateGroupRequest {
   require_oauth_only?: boolean
   require_privacy_set?: boolean
   copy_accounts_from_group_ids?: number[]
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_tiers?: GroupRechargeRateTier[]
 }

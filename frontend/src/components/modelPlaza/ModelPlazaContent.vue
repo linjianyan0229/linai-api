@@ -102,6 +102,7 @@ const descriptionHtml = computed(() => {
 /** 生效倍率 = 用户专属倍率 ?? 分组默认倍率。 */
 const currentTimeRate = useGroupTimeRate()
 function effectiveRate(g: ModelPlazaGroup): number {
+  if (g.dynamic_rate_enabled && g.dynamic_rate_max == null) return Number.POSITIVE_INFINITY
   return currentTimeRate(g, g.user_rate_multiplier ?? g.rate_multiplier)
 }
 
@@ -120,7 +121,7 @@ const groupOptions = computed(() =>
 
 /** 全量生效倍率;当前组合下不可用的项由 FilterBar 置灰而非隐藏。 */
 const rates = computed(() =>
-  [...new Set((props.response?.groups ?? []).map(effectiveRate))].sort((a, b) => a - b)
+  [...new Set((props.response?.groups ?? []).map(effectiveRate).filter(Number.isFinite))].sort((a, b) => a - b)
 )
 
 /** 数据刷新后选中的倍率可能不复存在,重置为全部。 */

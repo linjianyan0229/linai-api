@@ -22197,6 +22197,9 @@ type GroupMutation struct {
 	i18n                                    *domain.GroupI18n
 	rate_multiplier                         *float64
 	addrate_multiplier                      *float64
+	dynamic_rate_enabled                    *bool
+	dynamic_rate_factor                     *float64
+	adddynamic_rate_factor                  *float64
 	recharge_rate_tiers                     *[]domain.GroupRechargeRateTier
 	appendrecharge_rate_tiers               []domain.GroupRechargeRateTier
 	time_rate_periods                       *[]domain.GroupTimeRatePeriod
@@ -22709,6 +22712,98 @@ func (m *GroupMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *GroupMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (m *GroupMutation) SetDynamicRateEnabled(b bool) {
+	m.dynamic_rate_enabled = &b
+}
+
+// DynamicRateEnabled returns the value of the "dynamic_rate_enabled" field in the mutation.
+func (m *GroupMutation) DynamicRateEnabled() (r bool, exists bool) {
+	v := m.dynamic_rate_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDynamicRateEnabled returns the old "dynamic_rate_enabled" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldDynamicRateEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDynamicRateEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDynamicRateEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDynamicRateEnabled: %w", err)
+	}
+	return oldValue.DynamicRateEnabled, nil
+}
+
+// ResetDynamicRateEnabled resets all changes to the "dynamic_rate_enabled" field.
+func (m *GroupMutation) ResetDynamicRateEnabled() {
+	m.dynamic_rate_enabled = nil
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (m *GroupMutation) SetDynamicRateFactor(f float64) {
+	m.dynamic_rate_factor = &f
+	m.adddynamic_rate_factor = nil
+}
+
+// DynamicRateFactor returns the value of the "dynamic_rate_factor" field in the mutation.
+func (m *GroupMutation) DynamicRateFactor() (r float64, exists bool) {
+	v := m.dynamic_rate_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDynamicRateFactor returns the old "dynamic_rate_factor" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldDynamicRateFactor(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDynamicRateFactor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDynamicRateFactor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDynamicRateFactor: %w", err)
+	}
+	return oldValue.DynamicRateFactor, nil
+}
+
+// AddDynamicRateFactor adds f to the "dynamic_rate_factor" field.
+func (m *GroupMutation) AddDynamicRateFactor(f float64) {
+	if m.adddynamic_rate_factor != nil {
+		*m.adddynamic_rate_factor += f
+	} else {
+		m.adddynamic_rate_factor = &f
+	}
+}
+
+// AddedDynamicRateFactor returns the value that was added to the "dynamic_rate_factor" field in this mutation.
+func (m *GroupMutation) AddedDynamicRateFactor() (r float64, exists bool) {
+	v := m.adddynamic_rate_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDynamicRateFactor resets all changes to the "dynamic_rate_factor" field.
+func (m *GroupMutation) ResetDynamicRateFactor() {
+	m.dynamic_rate_factor = nil
+	m.adddynamic_rate_factor = nil
 }
 
 // SetRechargeRateTiers sets the "recharge_rate_tiers" field.
@@ -26209,7 +26304,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 70)
+	fields := make([]string, 0, 72)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26230,6 +26325,12 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
+	}
+	if m.dynamic_rate_enabled != nil {
+		fields = append(fields, group.FieldDynamicRateEnabled)
+	}
+	if m.dynamic_rate_factor != nil {
+		fields = append(fields, group.FieldDynamicRateFactor)
 	}
 	if m.recharge_rate_tiers != nil {
 		fields = append(fields, group.FieldRechargeRateTiers)
@@ -26442,6 +26543,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.I18n()
 	case group.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case group.FieldDynamicRateEnabled:
+		return m.DynamicRateEnabled()
+	case group.FieldDynamicRateFactor:
+		return m.DynamicRateFactor()
 	case group.FieldRechargeRateTiers:
 		return m.RechargeRateTiers()
 	case group.FieldTimeRatePeriods:
@@ -26591,6 +26696,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldI18n(ctx)
 	case group.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case group.FieldDynamicRateEnabled:
+		return m.OldDynamicRateEnabled(ctx)
+	case group.FieldDynamicRateFactor:
+		return m.OldDynamicRateFactor(ctx)
 	case group.FieldRechargeRateTiers:
 		return m.OldRechargeRateTiers(ctx)
 	case group.FieldTimeRatePeriods:
@@ -26774,6 +26883,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case group.FieldDynamicRateEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDynamicRateEnabled(v)
+		return nil
+	case group.FieldDynamicRateFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDynamicRateFactor(v)
 		return nil
 	case group.FieldRechargeRateTiers:
 		v, ok := value.([]domain.GroupRechargeRateTier)
@@ -27227,6 +27350,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
 	}
+	if m.adddynamic_rate_factor != nil {
+		fields = append(fields, group.FieldDynamicRateFactor)
+	}
 	if m.addpeak_rate_multiplier != nil {
 		fields = append(fields, group.FieldPeakRateMultiplier)
 	}
@@ -27315,6 +27441,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case group.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case group.FieldDynamicRateFactor:
+		return m.AddedDynamicRateFactor()
 	case group.FieldPeakRateMultiplier:
 		return m.AddedPeakRateMultiplier()
 	case group.FieldDailyLimitUsd:
@@ -27382,6 +27510,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateMultiplier(v)
+		return nil
+	case group.FieldDynamicRateFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDynamicRateFactor(v)
 		return nil
 	case group.FieldPeakRateMultiplier:
 		v, ok := value.(float64)
@@ -27747,6 +27882,12 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case group.FieldDynamicRateEnabled:
+		m.ResetDynamicRateEnabled()
+		return nil
+	case group.FieldDynamicRateFactor:
+		m.ResetDynamicRateFactor()
 		return nil
 	case group.FieldRechargeRateTiers:
 		m.ResetRechargeRateTiers()

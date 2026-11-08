@@ -59,6 +59,9 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		PeakRateEnabled     bool                          `json:"peak_rate_enabled"`
 		PeakStart           string                        `json:"peak_start"`
 		PeakEnd             string                        `json:"peak_end"`
+		DynamicRateEnabled  bool                          `json:"dynamic_rate_enabled,omitempty"`
+		DynamicRateMin      *float64                      `json:"dynamic_rate_min,omitempty"`
+		DynamicRateMax      *float64                      `json:"dynamic_rate_max,omitempty"`
 		TimeRatePeriods     []service.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
 		RechargeRateEnabled bool                          `json:"recharge_rate_enabled,omitempty"`
 		PeakRateMultiplier  float64                       `json:"peak_rate_multiplier"`
@@ -82,6 +85,9 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 			ID: int64(p.ID), GroupID: p.GroupID,
 			GroupPlatform: gi.Platform, GroupName: gi.I18n.LocalizeName(c.GetHeader("Accept-Language"), gi.Name),
 			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
+			DynamicRateEnabled:  gi.DynamicRateEnabled,
+			DynamicRateMin:      gi.DynamicRateMin,
+			DynamicRateMax:      gi.DynamicRateMax,
 			TimeRatePeriods:     gi.TimeRatePeriods,
 			RechargeRateEnabled: gi.RechargeRateEnabled,
 			PeakStart:           gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
@@ -133,6 +139,9 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			GroupPlatform: gi.Platform, GroupName: gi.I18n.LocalizeName(c.GetHeader("Accept-Language"), gi.Name),
 			RateMultiplier:  gi.RateMultiplier,
 			PeakRateEnabled: gi.PeakRateEnabled, PeakStart: gi.PeakStart,
+			DynamicRateEnabled:  gi.DynamicRateEnabled,
+			DynamicRateMin:      gi.DynamicRateMin,
+			DynamicRateMax:      gi.DynamicRateMax,
 			TimeRatePeriods:     gi.TimeRatePeriods,
 			RechargeRateEnabled: gi.RechargeRateEnabled,
 			PeakEnd:             gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
@@ -194,6 +203,9 @@ type checkoutPlan struct {
 	PeakRateEnabled     bool                          `json:"peak_rate_enabled"`
 	PeakStart           string                        `json:"peak_start"`
 	PeakEnd             string                        `json:"peak_end"`
+	DynamicRateEnabled  bool                          `json:"dynamic_rate_enabled,omitempty"`
+	DynamicRateMin      *float64                      `json:"dynamic_rate_min,omitempty"`
+	DynamicRateMax      *float64                      `json:"dynamic_rate_max,omitempty"`
 	TimeRatePeriods     []service.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
 	RechargeRateEnabled bool                          `json:"recharge_rate_enabled,omitempty"`
 	PeakRateMultiplier  float64                       `json:"peak_rate_multiplier"`

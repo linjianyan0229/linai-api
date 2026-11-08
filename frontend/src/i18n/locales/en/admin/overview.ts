@@ -1135,6 +1135,18 @@ export default {
           'Leave empty to use the default $0.01 per call (official pricing: $10 per 1,000 calls); 0 means free. The group rate multiplier is applied on top.',
         finalPricePreview: 'Per-call price after current multiplier: {price}'
       },
+      dynamicRates: {
+        costHint: 'Account costs and quotas keep the configured account rate and its auto-sync setting. This switch controls the final customer group rate.',
+        title: 'Upstream dynamic rate', hint: 'Final group rate = the selected upstream’s rate × your factor. OpenAI API key accounts only.',
+        createFirst: 'Create the group, bind an upstream, and enable its billing probe. Return here after a valid quote is available.',
+        sources: '{count} upstreams have valid quotes', unavailable: 'No valid upstream quotes', loadFailed: 'Could not load quotes',
+        setupHint: 'Enable billing probes on a bound OpenAI API key account and wait for a successful result. Manually entered account rates do not qualify.',
+        factor: 'Upstream rate factor', preview: 'Upstream {upstream} × {factor} = downstream {result}', invalid: 'Enter a positive factor up to 9999.9999 with at most four decimal places.',
+        paused: 'Recharge levels, time periods, and user overrides are paused while enabled; their settings are preserved. Independent image/video rates stay independent.',
+        freshness: 'Follows account billing probe updates. Accounts with missing, failed, or expired quotes are excluded. Prices are frozen per request and WebSocket turn.',
+        label: 'Dynamic', reference: 'Current reference rate {range}', noQuote: 'Upstream quote unavailable',
+        pricingHint: 'Prices use the upper end of the current reference range. Settlement uses the selected upstream quote; recharge, time, and user rates do not stack.',
+      },
       timeRates: {
         title: "Daily peak / off-peak rates",
         hint: "Switch daily in Asia/Shanghai (Beijing time, UTC+8). Multiple peak and off-peak periods can cross midnight.",

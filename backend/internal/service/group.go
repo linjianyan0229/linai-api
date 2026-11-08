@@ -16,14 +16,18 @@ type GroupCodexModelsManifestConfig = domain.GroupCodexModelsManifestConfig
 type ReasoningEffortMapping = domain.ReasoningEffortMapping
 
 type Group struct {
-	ID                int64
-	Name              string
-	Description       string
-	I18n              GroupI18n // 名称与描述的界面语言译文；缺失的语言沿用 Name/Description
-	Platform          string
-	RateMultiplier    float64
-	TimeRatePeriods   []GroupTimeRatePeriod
-	RechargeRateTiers []GroupRechargeRateTier
+	ID                 int64
+	Name               string
+	Description        string
+	I18n               GroupI18n // 名称与描述的界面语言译文；缺失的语言沿用 Name/Description
+	Platform           string
+	DynamicRateEnabled bool
+	DynamicRateFactor  float64
+	DynamicRateMin     *float64
+	DynamicRateMax     *float64
+	RateMultiplier     float64
+	TimeRatePeriods    []GroupTimeRatePeriod
+	RechargeRateTiers  []GroupRechargeRateTier
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费倍率额外乘以 PeakRateMultiplier。详见 PeakMultiplierAt。
 	PeakRateEnabled    bool
@@ -317,6 +321,9 @@ func parseMinutes(hhmm string) (int, bool) {
 //
 // 该方法是纯函数，不读取任何外部状态，便于单测。
 func (g *Group) PeakMultiplierAt(now time.Time) float64 {
+	if g != nil && g.DynamicRateEnabled {
+		return 1
+	}
 	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
 		return 1.0
 	}

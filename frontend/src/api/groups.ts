@@ -28,6 +28,9 @@ export async function getUserGroupRates(): Promise<Record<number, number>> {
 }
 
 export interface GroupRechargeProgress {
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   group_id: number
   group_name: string

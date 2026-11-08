@@ -1132,6 +1132,18 @@ export default {
           '留空使用默认价 $0.01/次（官方定价 $10/1000 次）；填 0 表示免费。实际扣费会叠加分组费率倍数。',
         finalPricePreview: '应用当前倍率后的单次价格：{price}'
       },
+      dynamicRates: {
+        costHint: '账号成本与额度统计沿用账号已有倍率及其自动同步设置；此开关控制用户的最终分组倍率。',
+        title: '上游动态倍率', hint: '最终分组倍率 = 本次实际使用的上游倍率 × 设置倍数，仅支持 OpenAI API Key 上游。',
+        createFirst: '请先创建分组、绑定上游账号，并在账号中开启倍率探测，获取有效报价后再回来开启。',
+        sources: '{count} 个上游具有有效报价', unavailable: '暂无可用的上游报价', loadFailed: '读取报价失败',
+        setupHint: '请在已绑定的 OpenAI API Key 账号中开启上游倍率探测，并等待探测成功。手填账号倍率不能用于此功能。',
+        factor: '上游倍率的倍数', preview: '上游 {upstream} × {factor} = 下游 {result}', invalid: '请输入大于 0、最多四位小数且不超过 9999.9999 的倍数。',
+        paused: '启用时暂停充值档位、峰谷时段和用户专属倍率，原配置保留；独立图片/视频倍率仍保持独立。',
+        freshness: '随账号的上游探测结果自动调整。无报价、探测失败或报价过期的账号将被排除；每个请求及 WebSocket 轮次开始时冻结价格。',
+        label: '动态', reference: '当前参考倍率 {range}', noQuote: '上游报价暂不可用',
+        pricingHint: '价格按当前参考倍率上限展示，实际按本次选中的上游报价结算；充值档位、峰谷和用户专属倍率不叠加。',
+      },
       timeRates: {
         title: "峰谷时间倍率",
         hint: "统一按 Asia/Shanghai（北京时间 UTC+8）每日自动切换，支持多个高峰、低谷时段和跨午夜。",

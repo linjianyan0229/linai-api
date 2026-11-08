@@ -833,3 +833,7 @@ func (s *stubAdminService) CreateShadow(ctx context.Context, parentID int64, opt
 
 // Ensure stub implements interface.
 var _ service.AdminService = (*stubAdminService)(nil)
+
+func (s *stubAdminService) GetGroupDynamicRateAvailability(ctx context.Context, id int64) (*service.GroupDynamicRateAvailability, error) {
+	return &service.GroupDynamicRateAvailability{}, nil
+}

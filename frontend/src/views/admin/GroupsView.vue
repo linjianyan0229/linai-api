@@ -263,9 +263,9 @@
 
           <template #cell-rate_multiplier="{ value, row }">
             <span class="text-sm text-gray-700 dark:text-gray-300"
-              >{{ value }}x</span
+              >{{ row.dynamic_rate_enabled ? `${t("admin.groups.dynamicRates.label")} · ${dynamicRateRange(row) ?? "—"}` : `${value}x` }}</span
             >
-            <span v-if="row.time_rate_periods?.length" class="ml-2 badge badge-primary" :title="formatGroupTimeRates(row)">{{ t('admin.groups.timeRates.title') }}</span>
+            <span v-if="!row.dynamic_rate_enabled && row.time_rate_periods?.length" class="ml-2 badge badge-primary" :title="formatGroupTimeRates(row)">{{ t('admin.groups.timeRates.title') }}</span>
           </template>
 
           <template #cell-is_exclusive="{ value }">
@@ -627,6 +627,7 @@
           />
           <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
         </div>
+        <GroupDynamicRateEditor v-if="createForm.platform === 'openai'" v-model:enabled="createForm.dynamic_rate_enabled" v-model:factor="createForm.dynamic_rate_factor" />
         <GroupRechargeRateEditor
           v-if="!authStore.isSimpleMode && createForm.subscription_type !== 'subscription'"
           v-model="createForm.recharge_rate_tiers"
@@ -2237,6 +2238,7 @@
           }}</label>
           <input
             v-model.number="editForm.rate_multiplier"
+            :disabled="editForm.platform === 'openai' && editForm.dynamic_rate_enabled"
             type="number"
             step="0.001"
             min="0.001"
@@ -2245,10 +2247,13 @@
             data-tour="group-form-multiplier"
           />
         </div>
+        <GroupDynamicRateEditor v-if="editForm.platform === 'openai'" v-model:enabled="editForm.dynamic_rate_enabled" v-model:factor="editForm.dynamic_rate_factor" :group-id="editingGroup?.id" />
+        <fieldset :disabled="editForm.platform === 'openai' && editForm.dynamic_rate_enabled" :class="{ 'opacity-50': editForm.platform === 'openai' && editForm.dynamic_rate_enabled }">
         <GroupRechargeRateEditor
           v-if="!authStore.isSimpleMode && editForm.subscription_type !== 'subscription'"
           v-model="editForm.recharge_rate_tiers"
         />
+        </fieldset>
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
@@ -2811,6 +2816,7 @@
           </div>
         </div>
 
+        <fieldset :disabled="editForm.platform === 'openai' && editForm.dynamic_rate_enabled" :class="{ 'opacity-50': editForm.platform === 'openai' && editForm.dynamic_rate_enabled }">
         <GroupTimeRateEditor
           v-if="!authStore.isSimpleMode"
           :model-value="editForm.time_rate_periods"
@@ -2819,6 +2825,7 @@
           :legacy-enabled="editForm.peak_rate_enabled"
           @update:model-value="updateTimeRates(editForm, $event)"
         />
+        </fieldset>
 
         <!-- 分组利润控制（五个平台 token 请求） -->
         <div v-if="isProfitControlPlatform(editForm.platform)" class="border-t pt-4">
@@ -4261,6 +4268,8 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import { platformLabel } from "@/utils/platformColors";
 import Icon from "@/components/icons/Icon.vue";
 import GroupI18nField from "@/components/admin/group/GroupI18nField.vue";
+import GroupDynamicRateEditor from "@/components/admin/group/GroupDynamicRateEditor.vue";
+import { dynamicRateRange, validDynamicRateFactor } from "@/utils/groupDynamicRates";
 import GroupTimeRateEditor from "@/components/admin/group/GroupTimeRateEditor.vue";
 import { formatGroupTimeRates, validGroupTimeRates } from "@/utils/groupTimeRates";
 import GroupRechargeRateEditor from "@/components/admin/group/GroupRechargeRateEditor.vue";
@@ -4916,6 +4925,8 @@ const createForm = reactive({
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  dynamic_rate_enabled: false,
+  dynamic_rate_factor: 2,
   time_rate_periods: [] as GroupTimeRatePeriod[],
   recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
@@ -5284,6 +5295,8 @@ const editForm = reactive({
   i18n: {} as GroupI18n,
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  dynamic_rate_enabled: false,
+  dynamic_rate_factor: 2,
   time_rate_periods: [] as GroupTimeRatePeriod[],
   recharge_rate_tiers: [] as GroupRechargeRateTier[],
   is_exclusive: false,
@@ -5360,6 +5373,7 @@ const editForm = reactive({
 });
 
 type ImagePricingFormState = {
+  dynamic_rate_enabled?: boolean;
   platform: GroupPlatform;
   allow_image_generation: boolean;
   allow_batch_image_generation: boolean;
@@ -5379,6 +5393,7 @@ type ImagePricingFormState = {
 };
 
 type VideoPricingFormState = {
+  dynamic_rate_enabled?: boolean;
   platform: GroupPlatform;
   rate_multiplier: number;
   video_rate_independent: boolean;
@@ -5439,6 +5454,7 @@ const formatVideoPricePreview = (value: number | string | null | undefined) => {
 };
 
 const buildImageFinalPricePreview = (form: ImagePricingFormState) => {
+  if (form.dynamic_rate_enabled && !form.image_rate_independent) return imagePricingTiers.map((tier) => ({ label: tier.label, value: t("admin.groups.dynamicRates.label") }));
   const imageMultiplier = form.image_rate_independent
     ? normalizePreviewNumber(form.image_rate_multiplier, 1)
     : normalizePreviewNumber(form.rate_multiplier, 1);
@@ -5457,6 +5473,7 @@ const buildImageFinalPricePreview = (form: ImagePricingFormState) => {
 };
 
 const buildVideoFinalPricePreview = (form: VideoPricingFormState) => {
+  if (form.dynamic_rate_enabled && !form.video_rate_independent) return videoPricingTiers.map((tier) => ({ label: tier.label, value: t("admin.groups.dynamicRates.label") }));
   const multiplier = form.video_rate_independent
     ? normalizePreviewNumber(form.video_rate_multiplier, 1)
     : normalizePreviewNumber(form.rate_multiplier, 1);
@@ -5490,9 +5507,11 @@ const editVideoFinalPricePreview = computed(() =>
 const DEFAULT_WEB_SEARCH_PRICE_PER_CALL = 0.01;
 
 const buildWebSearchFinalPricePreview = (form: {
+  dynamic_rate_enabled?: boolean;
   web_search_price_per_call: number | string | null;
   rate_multiplier: number | string | null;
 }) => {
+  if (form.dynamic_rate_enabled) return t("admin.groups.dynamicRates.label");
   const basePrice =
     parsePreviewPrice(form.web_search_price_per_call) ??
     DEFAULT_WEB_SEARCH_PRICE_PER_CALL;
@@ -5763,6 +5782,8 @@ const closeCreateModal = () => {
   createForm.i18n = {};
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.dynamic_rate_enabled = false;
+  createForm.dynamic_rate_factor = 2;
   createForm.time_rate_periods = [];
   createForm.recharge_rate_tiers = [];
   createForm.is_exclusive = false;
@@ -6058,6 +6079,8 @@ const handleEdit = async (group: AdminGroup) => {
   );
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.dynamic_rate_enabled = group.dynamic_rate_enabled ?? false;
+  editForm.dynamic_rate_factor = group.dynamic_rate_factor ?? 2;
   editForm.time_rate_periods = (group.time_rate_periods ?? []).map((period) => ({ ...period }));
   editForm.recharge_rate_tiers = (group.recharge_rate_tiers ?? []).map((tier) => ({ ...tier }));
   editForm.is_exclusive = group.is_exclusive;
@@ -6189,6 +6212,8 @@ const closeEditModal = () => {
   editReasoningEffortPolicyRef.value?.resetValidation();
   editModelRoutingRules.value = [];
   editForm.copy_accounts_from_group_ids = [];
+  editForm.dynamic_rate_enabled = false;
+  editForm.dynamic_rate_factor = 2;
   editForm.time_rate_periods = [];
   editForm.peak_rate_enabled = false;
   editForm.peak_start = "";
@@ -6233,6 +6258,10 @@ const handleUpdateGroup = async () => {
   ) {
     return;
   }
+  if (editForm.dynamic_rate_enabled && !validDynamicRateFactor(editForm.dynamic_rate_factor)) {
+    appStore.showError(t("admin.groups.dynamicRates.invalid"));
+    return;
+  }
   if (!validGroupTimeRates(editForm.time_rate_periods)) {
     appStore.showError(t("admin.groups.timeRates.invalid"));
     return;
@@ -6269,6 +6298,7 @@ const handleUpdateGroup = async () => {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+      dynamic_rate_enabled: editForm.platform === "openai" && editForm.dynamic_rate_enabled,
       recharge_rate_tiers: editForm.subscription_type === 'subscription' ? [] : editForm.recharge_rate_tiers,
       force_openai_fast: normalizeGroupOpenAIFast(
         editForm.platform,

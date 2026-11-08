@@ -23,6 +23,9 @@ type AvailableGroupRef struct {
 	PeakRateEnabled     bool
 	PeakStart           string
 	PeakEnd             string
+	DynamicRateEnabled  bool
+	DynamicRateMin      *float64
+	DynamicRateMax      *float64
 	TimeRatePeriods     []GroupTimeRatePeriod
 	RechargeRateEnabled bool
 	PeakRateMultiplier  float64
@@ -76,6 +79,9 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 			PeakRateEnabled:     g.PeakRateEnabled,
 			PeakStart:           g.PeakStart,
 			PeakEnd:             g.PeakEnd,
+			DynamicRateEnabled:  g.DynamicRateEnabled,
+			DynamicRateMin:      g.DynamicRateMin,
+			DynamicRateMax:      g.DynamicRateMax,
 			TimeRatePeriods:     g.TimeRatePeriods,
 			RechargeRateEnabled: len(g.RechargeRateTiers) == 3,
 			PeakRateMultiplier:  g.PeakRateMultiplier,

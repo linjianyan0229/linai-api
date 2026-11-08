@@ -109,6 +109,9 @@ func groupTimeRateAt(periods []GroupTimeRatePeriod, local time.Time) (float64, b
 // recharge levels it multiplies the resolved base (manual override or earned
 // level) by the period coefficient. Disabled schedules preserve existing pricing.
 func (g *Group) TimeAdjustedRate(base float64, now time.Time) float64 {
+	if g != nil && g.DynamicRateEnabled {
+		return base
+	}
 	rate, enabled := g.TimeRateAt(now)
 	if !enabled {
 		return base

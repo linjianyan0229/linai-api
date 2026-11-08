@@ -66,6 +66,9 @@ export interface ModelPlazaGroup {
   rate_multiplier: number
   /** 登录且管理员为该用户配了专属倍率时返回；生效倍率 = user_rate ?? rate_multiplier。 */
   user_rate_multiplier?: number
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_enabled?: boolean
   peak_rate_enabled: boolean

@@ -26,8 +26,9 @@
     <div class="flex shrink-0 items-center gap-2 pt-0.5">
       <div class="flex shrink-0 flex-col items-end gap-1">
         <!-- Rate pill (platform color) -->
-        <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
-          <template v-if="hasCustomRate">
+        <span v-if="dynamicRateEnabled || rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
+          <template v-if="dynamicRateEnabled">{{ t('admin.groups.dynamicRates.label') }} · {{ dynamicRateRange({ dynamic_rate_min: dynamicRateMin, dynamic_rate_max: dynamicRateMax }) ?? '—' }}</template>
+          <template v-else-if="hasCustomRate">
             <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
             <span class="font-bold">{{ userRateMultiplier }}x</span>
           </template>
@@ -35,7 +36,7 @@
             {{ timeRatePeriods?.length ? displayedRate : rateMultiplier }}x {{ t('admin.groups.rateLabel') }}
           </template>
         </span>
-        <span v-if="timeRatePeriods?.length" class="text-xs text-primary-600 dark:text-primary-300" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
+        <span v-if="!dynamicRateEnabled && timeRatePeriods?.length" class="text-xs text-primary-600 dark:text-primary-300" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
         <span
           v-if="hasPeakRate"
           class="inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
@@ -61,6 +62,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { dynamicRateRange } from '@/utils/groupDynamicRates'
 import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
 import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { useI18n } from 'vue-i18n'
@@ -77,6 +79,9 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null
+  dynamicRateEnabled?: boolean
+  dynamicRateMin?: number | null
+  dynamicRateMax?: number | null
   timeRatePeriods?: GroupTimeRatePeriod[]
   rechargeRateEnabled?: boolean
   peakRateEnabled?: boolean
@@ -114,7 +119,7 @@ const displayedRate = computed(() => currentTimeRate(timeFields.value, props.use
 const timeRateTitle = computed(() => formatGroupTimeRates(timeFields.value))
 
 const hasPeakRate = computed(() => {
-  return Boolean(props.peakRateEnabled && props.peakStart && props.peakEnd)
+  return Boolean(!props.dynamicRateEnabled && props.peakRateEnabled && props.peakStart && props.peakEnd)
 })
 
 const peakRateText = computed(() => {

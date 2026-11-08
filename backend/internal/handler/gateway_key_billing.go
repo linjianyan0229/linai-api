@@ -53,6 +53,11 @@ func (h *GatewayHandler) KeyBillingInfo(c *gin.Context) {
 		return
 	}
 
+	if apiKey.Group.DynamicRateEnabled {
+		c.Header("Cache-Control", "no-store")
+		h.errorResponse(c, http.StatusNotImplemented, "dynamic_billing_not_supported", "This group is priced per selected upstream; a fixed billing rate cannot be declared")
+		return
+	}
 	resolvedRate, ok := h.resolveKeyBillingRate(c, apiKey)
 	if !ok {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "Billing information is unavailable")

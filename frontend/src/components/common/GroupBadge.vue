@@ -20,7 +20,8 @@
         {{ labelText }}
       </template>
     </span>
-    <span v-if="timeRatePeriods?.length && showRate" :class="peakRateClass" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
+    <span v-if="dynamicRateEnabled && isSubscription && !alwaysShowRate && showRate" :class="peakRateClass">{{ t('admin.groups.dynamicRates.label') }}</span>
+    <span v-if="!dynamicRateEnabled && timeRatePeriods?.length && showRate" :class="peakRateClass" :title="timeRateTitle">{{ t('admin.groups.timeRates.title') }}</span>
     <span v-if="hasPeakRate" :class="peakRateClass" :title="peakRateTitle">
       {{ peakRateText }}
     </span>
@@ -28,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { dynamicRateRange } from '@/utils/groupDynamicRates'
 import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
 import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { computed } from 'vue'
@@ -43,6 +45,9 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null // 用户专属倍率
+  dynamicRateEnabled?: boolean
+  dynamicRateMin?: number | null
+  dynamicRateMax?: number | null
   timeRatePeriods?: GroupTimeRatePeriod[]
   rechargeRateEnabled?: boolean
   peakRateEnabled?: boolean
@@ -82,6 +87,7 @@ const isSubscription = computed(() => props.subscriptionType === 'subscription')
 // 是否有专属倍率（且与默认倍率不同）
 const hasCustomRate = computed(() => {
   return (
+    !props.dynamicRateEnabled &&
     !props.timeRatePeriods?.length &&
     props.userRateMultiplier !== null &&
     props.userRateMultiplier !== undefined &&
@@ -93,7 +99,7 @@ const hasCustomRate = computed(() => {
 const appStore = useAppStore()
 
 const hasPeakRate = computed(() => {
-  return Boolean(props.showRate && props.peakRateEnabled && props.peakStart && props.peakEnd)
+  return Boolean(!props.dynamicRateEnabled && props.showRate && props.peakRateEnabled && props.peakStart && props.peakEnd)
 })
 
 const peakRateText = computed(() => {
@@ -118,11 +124,15 @@ const showLabel = computed(() => {
   // 订阅类型：显示天数或"订阅"
   if (isSubscription.value) return true
   // 标准类型：显示倍率（包括专属倍率）
-  return props.rateMultiplier !== undefined || hasCustomRate.value
+  return props.dynamicRateEnabled || props.rateMultiplier !== undefined || hasCustomRate.value
 })
 
 // Label text
 const labelText = computed(() => {
+  if (props.dynamicRateEnabled && (!isSubscription.value || props.alwaysShowRate)) {
+    const range = dynamicRateRange({ dynamic_rate_min: props.dynamicRateMin, dynamic_rate_max: props.dynamicRateMax })
+    return range ? `${t("admin.groups.dynamicRates.label")} · ${range}` : t("admin.groups.dynamicRates.label")
+  }
   const rateLabel = props.rateMultiplier !== undefined ? `${props.timeRatePeriods?.length ? displayedRate.value : props.rateMultiplier}x` : ''
   if (isSubscription.value && !props.alwaysShowRate) {
     // 如果有剩余天数，显示天数

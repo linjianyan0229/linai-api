@@ -119,6 +119,9 @@ type Group struct {
 	BatchImageHoldMultiplier     float64                         `json:"batch_image_hold_multiplier"`
 	VideoRateIndependent         bool                            `json:"video_rate_independent"`
 	VideoRateMultiplier          float64                         `json:"video_rate_multiplier"`
+	DynamicRateEnabled           bool                            `json:"dynamic_rate_enabled,omitempty"`
+	DynamicRateMin               *float64                        `json:"dynamic_rate_min,omitempty"`
+	DynamicRateMax               *float64                        `json:"dynamic_rate_max,omitempty"`
 	TimeRatePeriods              []service.GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers            []service.GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	// 高峰时段倍率配置
@@ -172,6 +175,7 @@ type Group struct {
 // AdminGroup 是管理员接口使用的 group DTO（包含敏感/内部字段）。
 // 注意：普通用户接口不得返回 model_routing/account_count/account_groups 等内部信息。
 type AdminGroup struct {
+	DynamicRateFactor float64 `json:"dynamic_rate_factor"`
 	Group
 	// ForceOpenAIFast 是管理端请求策略，用户侧分组 DTO 无需暴露。
 	ForceOpenAIFast bool `json:"force_openai_fast"`

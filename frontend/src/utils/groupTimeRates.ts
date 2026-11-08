@@ -5,6 +5,8 @@ export const MAX_GROUP_TIME_RATE_PERIODS = 48
 export type GroupTimeRateKind = 'peak' | 'valley'
 
 export interface GroupTimeRateFields {
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_enabled?: boolean
   recharge_rate_tiers?: unknown[]
@@ -99,6 +101,7 @@ export function formatGroupTimeRates(fields: GroupTimeRateFields): string {
 const shanghaiClock = new Intl.DateTimeFormat('en-GB', { timeZone: GROUP_TIME_RATE_TIMEZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 export function timeAdjustedRate(fields: GroupTimeRateFields, base: number, now: Date): number {
+  if (fields.dynamic_rate_enabled) return fields.dynamic_rate_max ?? base
   if (!fields.time_rate_periods?.length) return base
   const parts = shanghaiClock.formatToParts(now)
   const minute = Number(parts.find(p => p.type === 'hour')?.value) * 60 + Number(parts.find(p => p.type === 'minute')?.value)

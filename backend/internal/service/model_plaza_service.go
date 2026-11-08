@@ -47,6 +47,9 @@ type PlazaGroup struct {
 	PeakRateEnabled     bool
 	PeakStart           string
 	PeakEnd             string
+	DynamicRateEnabled  bool     `json:"dynamic_rate_enabled,omitempty"`
+	DynamicRateMin      *float64 `json:"dynamic_rate_min,omitempty"`
+	DynamicRateMax      *float64 `json:"dynamic_rate_max,omitempty"`
 	TimeRatePeriods     []GroupTimeRatePeriod
 	RechargeRateEnabled bool
 	PeakRateMultiplier  float64
@@ -135,6 +138,9 @@ func (s *ModelPlazaService) ListGroups(ctx context.Context) ([]PlazaGroup, error
 			PeakRateEnabled:           g.PeakRateEnabled,
 			PeakStart:                 g.PeakStart,
 			PeakEnd:                   g.PeakEnd,
+			DynamicRateEnabled:        g.DynamicRateEnabled,
+			DynamicRateMin:            g.DynamicRateMin,
+			DynamicRateMax:            g.DynamicRateMax,
 			TimeRatePeriods:           g.TimeRatePeriods,
 			RechargeRateEnabled:       len(g.RechargeRateTiers) == 3,
 			PeakRateMultiplier:        g.PeakRateMultiplier,

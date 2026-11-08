@@ -152,6 +152,7 @@ const discountText = computed(() => {
 })
 
 const rateDisplay = computed(() => {
+  if (props.plan.dynamic_rate_enabled) return t('admin.groups.dynamicRates.label')
   const rate = currentTimeRate(props.plan, props.plan.rate_multiplier ?? 1)
   return `×${Number(rate.toPrecision(10))}`
 })
@@ -160,7 +161,7 @@ const appStore = useAppStore()
 const currentTimeRate = useGroupTimeRate()
 const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
 
-const hasPeakRate = computed(() => Boolean(props.plan.time_rate_periods?.length) || groupHasPeakRate(props.plan))
+const hasPeakRate = computed(() => !props.plan.dynamic_rate_enabled && (Boolean(props.plan.time_rate_periods?.length) || groupHasPeakRate(props.plan)))
 
 const peakRateDisplay = computed(() => {
   if (props.plan.time_rate_periods?.length) return formatGroupTimeRates(props.plan)

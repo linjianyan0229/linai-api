@@ -23,7 +23,12 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 	account *Account,
 	body []byte,
 	defaultMappedModel string,
-) (*OpenAIForwardResult, error) {
+) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
+	if dynamicErr != nil {
+		return nil, dynamicErr
+	}
+	defer func() { attachForwardDynamicPricing(forwardResult, dynamicQuote) }()
 	startTime := time.Now()
 
 	originalModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())

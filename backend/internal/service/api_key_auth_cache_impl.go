@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 27 // v27: multiple peak/off-peak periods in Asia/Shanghai
+const apiKeyAuthSnapshotVersion = 28 // v28: immutable per-upstream dynamic group pricing
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -429,6 +429,8 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			MaxReasoningEffort:              apiKey.Group.MaxReasoningEffort,
 			MaxReasoningEffortOverLimit:     apiKey.Group.MaxReasoningEffortOverLimit,
 			ReasoningEffortMappings:         apiKey.Group.ReasoningEffortMappings,
+			DynamicRateEnabled:              apiKey.Group.DynamicRateEnabled,
+			DynamicRateFactor:               apiKey.Group.DynamicRateFactor,
 			TimeRatePeriods:                 append([]GroupTimeRatePeriod(nil), apiKey.Group.TimeRatePeriods...),
 			RechargeRateTiers:               append([]GroupRechargeRateTier(nil), apiKey.Group.RechargeRateTiers...),
 			PeakRateEnabled:                 apiKey.Group.PeakRateEnabled,
@@ -534,6 +536,8 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			MaxReasoningEffort:              snapshot.Group.MaxReasoningEffort,
 			MaxReasoningEffortOverLimit:     snapshot.Group.MaxReasoningEffortOverLimit,
 			ReasoningEffortMappings:         snapshot.Group.ReasoningEffortMappings,
+			DynamicRateEnabled:              snapshot.Group.DynamicRateEnabled,
+			DynamicRateFactor:               snapshot.Group.DynamicRateFactor,
 			TimeRatePeriods:                 append([]GroupTimeRatePeriod(nil), snapshot.Group.TimeRatePeriods...),
 			RechargeRateTiers:               append([]GroupRechargeRateTier(nil), snapshot.Group.RechargeRateTiers...),
 			PeakRateEnabled:                 snapshot.Group.PeakRateEnabled,

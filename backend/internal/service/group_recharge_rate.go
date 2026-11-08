@@ -95,7 +95,7 @@ func (s *APIKeyService) GetRechargeProgress(ctx context.Context, userID int64, l
 		return nil, err
 	}
 	for _, group := range groups {
-		if len(group.RechargeRateTiers) != 3 || group.IsSubscriptionType() {
+		if group.DynamicRateEnabled || len(group.RechargeRateTiers) != 3 || group.IsSubscriptionType() {
 			continue
 		}
 		level := GroupRechargeLevel(group.RechargeRateTiers, result.PrincipalUSD)

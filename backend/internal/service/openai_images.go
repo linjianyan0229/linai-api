@@ -608,7 +608,12 @@ func (s *OpenAIGatewayService) ForwardImages(
 	body []byte,
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
-) (*OpenAIForwardResult, error) {
+) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
+	if dynamicErr != nil {
+		return nil, dynamicErr
+	}
+	defer func() { attachForwardDynamicPricing(forwardResult, dynamicQuote) }()
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}

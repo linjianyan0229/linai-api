@@ -129,6 +129,9 @@ export interface SubscriptionPlan {
   group_platform?: string
   group_name?: string
   rate_multiplier?: number
+  dynamic_rate_enabled?: boolean
+  dynamic_rate_min?: number | null
+  dynamic_rate_max?: number | null
   time_rate_periods?: GroupTimeRatePeriod[]
   recharge_rate_enabled?: boolean
   peak_rate_enabled?: boolean

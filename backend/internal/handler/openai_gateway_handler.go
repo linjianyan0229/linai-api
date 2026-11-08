@@ -2149,8 +2149,9 @@ type openAIWSTurnAPIKeyLookup interface {
 // 快照。只保留当前与上一个 turn：下一 turn 的 BeforeTurn 先于上一 turn 的
 // AfterTurn 执行时，上一 turn 仍取到自己的快照。
 type openAIWSTurnBillingAPIKeys struct {
-	mu   sync.Mutex
-	keys map[int]*service.APIKey
+	mu     sync.Mutex
+	keys   map[int]*service.APIKey
+	quotes map[int]*service.DynamicGroupPricing
 }
 
 // begin 在 BeforeTurn 重装利润门前调用：后续 turn 重取计费分组并按 turn 记下，
@@ -2173,6 +2174,7 @@ func (k *openAIWSTurnBillingAPIKeys) set(turn int, key *service.APIKey) {
 	for t := range k.keys {
 		if t < turn-1 {
 			delete(k.keys, t)
+			delete(k.quotes, t)
 		}
 	}
 	k.keys[turn] = key
@@ -2215,10 +2217,10 @@ func withOpenAIWSTurnBillingGroup(ctx context.Context, turnKey *service.APIKey) 
 		return ctx
 	}
 	current, ok := ctx.Value(ctxkey.Group).(*service.Group)
-	if !ok || current == nil || current == turnKey.Group || current.ID != turnKey.Group.ID {
+	if !ok || current == nil || current.ID != turnKey.Group.ID {
 		return ctx
 	}
-	return context.WithValue(ctx, ctxkey.Group, turnKey.Group)
+	return service.WithDynamicBillingGroup(context.WithValue(ctx, ctxkey.Group, turnKey.Group), turnKey.Group)
 }
 
 // recordOpenAIProfitVeto 记录 OpenAI 侧选号循环的一次利润门终检否决：把账号
@@ -2960,6 +2962,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		// 后续 turn 的计费分组同样在 BeforeTurn 经认证缓存重取，使分组调价对
 		// 已打开的连接生效。
 		var turnBillingAPIKeys openAIWSTurnBillingAPIKeys
+		initialDynamicQuote, dynamicErr := service.FreezeDynamicGroupPricing(ctx, account)
+		if dynamicErr != nil {
+			closeOpenAIClientWS(wsConn, coderws.StatusTryAgainLater, "upstream pricing is unavailable, please reconnect")
+			return
+		}
+		turnBillingAPIKeys.setQuote(1, initialDynamicQuote)
 		// Passthrough ingress does not invoke BeforeTurn for the first frame.
 		if err := checkSimpleModeTurnBilling(); err != nil {
 			closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
@@ -3049,13 +3057,19 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				// 无法中途换号）。本 turn 的准入与计费共用同一 pricingAt。
 				turnBillingCtx := turnBillingAPIKeys.begin(ctx, h.apiKeyService, turn, apiKey)
 				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(turnBillingCtx, apiKey.GroupID)
-				if _, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(turnCtx, account); vetoed {
+				freshAccount, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(turnCtx, account)
+				if vetoed {
 					reqLog.Info("openai.websocket_turn_profit_vetoed",
 						zap.Int("turn", turn),
 						zap.Int64("account_id", account.ID),
 						zap.String("reason", reason))
 					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "account is no longer eligible for this connection, please reconnect", nil)
 				}
+				dynamicQuote, dynamicErr := service.FreezeDynamicGroupPricing(turnCtx, freshAccount)
+				if dynamicErr != nil {
+					return service.NewOpenAIWSClientCloseError(coderws.StatusTryAgainLater, "upstream pricing is unavailable, please reconnect", nil)
+				}
+				turnBillingAPIKeys.setQuote(turn, dynamicQuote)
 				turnPricing.freeze(turnAt)
 				if turn == 1 {
 					return nil
@@ -3088,6 +3102,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				return checkSimpleModeTurnBilling()
 			},
 			AfterTurn: func(turn int, result *service.OpenAIForwardResult, turnErr error) {
+				turnBillingAPIKeys.attachQuote(turn, result)
+				turnBillingAPIKey := turnBillingAPIKeys.forTurn(turn, apiKey)
 				turnStart := getTurnStart(turn)
 				cyberBlockBody := takeCyberTurnBody(turn)
 				// 每次 attempt 都清 cyber mark；failover 链结束前保留 recorded guard，
@@ -3118,7 +3134,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				}
 				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
 				cyberMarked := service.GetOpsCyberPolicy(c) != nil
-				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockBody, turnUsageFields, requestPayloadHash)
+				h.recordCyberPolicyIfMarked(c, turnBillingAPIKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockBody, turnUsageFields, requestPayloadHash, turnBillingAPIKeys.quoteForTurn(turn))
 				cyberBlockedThisConn, cyberBlockPendingAfterFailover = advanceOpenAIWSCyberBlockState(
 					cyberBlockedThisConn,
 					cyberBlockPendingAfterFailover,
@@ -3164,7 +3180,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 				sessionID := service.ExtractClientSessionID(c)
 				turnRecordPricingAt := turnPricing.currentOr(turnStart)
-				turnBillingAPIKey := turnBillingAPIKeys.forTurn(turn, apiKey)
 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
 				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
@@ -3216,7 +3231,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 
 		for {
-			err := h.gatewayService.ProxyResponsesWebSocketFromClient(ctx, c, wsConn, account, token, wsFirstMessage, hooks)
+			err := h.gatewayService.ProxyResponsesWebSocketFromClient(service.WithExternallyFrozenDynamicPricing(ctx), c, wsConn, account, token, wsFirstMessage, hooks)
 			if err == nil {
 				reqLog.Info("openai.websocket_ingress_closed", zap.Int64("account_id", account.ID))
 				return
@@ -4336,7 +4351,7 @@ func (h *OpenAIGatewayHandler) enqueueCyberSessionBlockedOpsEntry(c *gin.Context
 // 并在 forward 返回错误时写一条 tokens=0 用量行。标记由 gateway 服务层在透传 cyber 后设置；
 // 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
 // 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
-func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, channelFields service.ChannelUsageFields, requestPayloadHash string) {
+func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, channelFields service.ChannelUsageFields, requestPayloadHash string, quotes ...*service.DynamicGroupPricing) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
 		return
@@ -4375,6 +4390,13 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 		if b, ok := v.(bool); ok {
 			stream = b
 		}
+	}
+	var dynamicQuote *service.DynamicGroupPricing
+	if account != nil {
+		dynamicQuote = service.DynamicGroupPricingForAccount(c, account.ID)
+	}
+	if len(quotes) > 0 {
+		dynamicQuote = quotes[0]
 	}
 	cmSvc := h.contentModerationService
 	gwSvc := h.gatewayService
@@ -4452,23 +4474,24 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 		}
 		if forwardErrored && gwSvc != nil {
 			gwSvc.RecordCyberPolicyUsageLog(ctx, service.CyberPolicyUsageInput{
-				APIKey:             apiKey,
-				Account:            account,
-				Subscription:       subscription,
-				RequestID:          requestID,
-				Model:              model,
-				Stream:             stream,
-				InputTokens:        mark.UpstreamInTok,
-				OutputTokens:       mark.UpstreamOutTok,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIPStr,
-				SessionID:          sessionID,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      apiKeySvc,
-				NativeCompactionV2: nativeCompactionV2,
-				ChannelUsageFields: channelFields,
+				DynamicGroupPricing: dynamicQuote,
+				APIKey:              apiKey,
+				Account:             account,
+				Subscription:        subscription,
+				RequestID:           requestID,
+				Model:               model,
+				Stream:              stream,
+				InputTokens:         mark.UpstreamInTok,
+				OutputTokens:        mark.UpstreamOutTok,
+				InboundEndpoint:     inboundEndpoint,
+				UpstreamEndpoint:    upstreamEndpoint,
+				UserAgent:           userAgent,
+				IPAddress:           clientIPStr,
+				SessionID:           sessionID,
+				RequestPayloadHash:  requestPayloadHash,
+				APIKeyService:       apiKeySvc,
+				NativeCompactionV2:  nativeCompactionV2,
+				ChannelUsageFields:  channelFields,
 			})
 		}
 		if opsSvc != nil {

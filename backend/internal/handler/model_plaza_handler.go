@@ -86,6 +86,9 @@ type modelPlazaGroup struct {
 	PeakRateEnabled     bool                          `json:"peak_rate_enabled"`
 	PeakStart           string                        `json:"peak_start"`
 	PeakEnd             string                        `json:"peak_end"`
+	DynamicRateEnabled  bool                          `json:"dynamic_rate_enabled,omitempty"`
+	DynamicRateMin      *float64                      `json:"dynamic_rate_min,omitempty"`
+	DynamicRateMax      *float64                      `json:"dynamic_rate_max,omitempty"`
 	TimeRatePeriods     []service.GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
 	RechargeRateEnabled bool                          `json:"recharge_rate_enabled,omitempty"`
 	PeakRateMultiplier  float64                       `json:"peak_rate_multiplier"`
@@ -222,6 +225,9 @@ func toModelPlazaGroupDTO(g *service.PlazaGroup, userRates map[int64]float64) mo
 		PeakRateEnabled:           g.PeakRateEnabled,
 		PeakStart:                 g.PeakStart,
 		PeakEnd:                   g.PeakEnd,
+		DynamicRateEnabled:        g.DynamicRateEnabled,
+		DynamicRateMin:            g.DynamicRateMin,
+		DynamicRateMax:            g.DynamicRateMax,
 		TimeRatePeriods:           g.TimeRatePeriods,
 		RechargeRateEnabled:       g.RechargeRateEnabled,
 		PeakRateMultiplier:        g.PeakRateMultiplier,

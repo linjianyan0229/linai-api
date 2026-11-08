@@ -81,6 +81,9 @@ type PlanGroupInfo struct {
 	PeakRateEnabled     bool                  `json:"peak_rate_enabled"`
 	PeakStart           string                `json:"peak_start"`
 	PeakEnd             string                `json:"peak_end"`
+	DynamicRateEnabled  bool                  `json:"dynamic_rate_enabled,omitempty"`
+	DynamicRateMin      *float64              `json:"dynamic_rate_min,omitempty"`
+	DynamicRateMax      *float64              `json:"dynamic_rate_max,omitempty"`
 	TimeRatePeriods     []GroupTimeRatePeriod `json:"time_rate_periods,omitempty"`
 	RechargeRateEnabled bool                  `json:"recharge_rate_enabled,omitempty"`
 	PeakRateMultiplier  float64               `json:"peak_rate_multiplier"`
@@ -119,6 +122,7 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 			PeakRateEnabled:     g.PeakRateEnabled,
 			PeakStart:           g.PeakStart,
 			PeakEnd:             g.PeakEnd,
+			DynamicRateEnabled:  g.DynamicRateEnabled,
 			TimeRatePeriods:     g.TimeRatePeriods,
 			RechargeRateEnabled: len(g.RechargeRateTiers) == 3,
 			PeakRateMultiplier:  g.PeakRateMultiplier,

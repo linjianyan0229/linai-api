@@ -25,6 +25,8 @@ func TestGetByKeyForAuthCarriesProfitControlProjection(t *testing.T) {
 		Name:                 fmt.Sprintf("profit-proj-group-%d", suffix),
 		Platform:             service.PlatformOpenAI,
 		RateMultiplier:       0.06,
+		DynamicRateEnabled:   true,
+		DynamicRateFactor:    2.5,
 		ProfitControlEnabled: true,
 		ProfitMinMargin:      0.2,
 		ProfitSafetyBuffer:   0.05,
@@ -52,6 +54,8 @@ func TestGetByKeyForAuthCarriesProfitControlProjection(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got.Group, "认证查询必须带出分组")
 
+	require.True(t, got.Group.DynamicRateEnabled)
+	require.Equal(t, 2.5, got.Group.DynamicRateFactor)
 	require.Equal(t, service.PlatformOpenAI, got.Group.Platform)
 	require.InDelta(t, 0.06, got.Group.RateMultiplier, 1e-9)
 	require.True(t, got.Group.ProfitControlEnabled, "profit_control_enabled 必须进入认证投影（投影漏列会让门静默失效）")

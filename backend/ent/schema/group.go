@@ -52,6 +52,8 @@ func (Group) Fields() []ent.Field {
 		field.Float("rate_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(1.0),
+		field.Bool("dynamic_rate_enabled").Default(false),
+		field.Float("dynamic_rate_factor").Default(2).SchemaType(map[string]string{dialect.Postgres: "numeric(8,4)"}),
 		field.JSON("recharge_rate_tiers", []domain.GroupRechargeRateTier{}).
 			Default([]domain.GroupRechargeRateTier{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),

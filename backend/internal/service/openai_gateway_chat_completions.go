@@ -72,7 +72,12 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	promptCacheKey string,
 	defaultMappedModel string,
 	compatPromptCacheTenantIsolated bool,
-) (*OpenAIForwardResult, error) {
+) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
+	if dynamicErr != nil {
+		return nil, dynamicErr
+	}
+	defer func() { attachForwardDynamicPricing(forwardResult, dynamicQuote) }()
 	rememberOpenCodeInboundBody(c, body)
 	beginUpstreamResponseModelObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)

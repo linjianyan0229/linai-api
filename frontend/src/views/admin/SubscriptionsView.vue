@@ -240,6 +240,9 @@
               :platform="row.group.platform"
               :subscription-type="row.group.subscription_type"
               :rate-multiplier="row.group.rate_multiplier"
+        :dynamic-rate-enabled="row.group.dynamic_rate_enabled"
+        :dynamic-rate-min="row.group.dynamic_rate_min"
+        :dynamic-rate-max="row.group.dynamic_rate_max"
               :show-rate="false"
             />
             <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>

@@ -99,6 +99,8 @@ func createGroupRecord(ctx context.Context, client *dbent.Client, groupIn *servi
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetDynamicRateEnabled(groupIn.DynamicRateEnabled).
+		SetDynamicRateFactor(groupIn.DynamicRateFactorOrDefault()).
 		SetTimeRatePeriods(append([]service.GroupTimeRatePeriod{}, groupIn.TimeRatePeriods...)).
 		SetRechargeRateTiers(append([]service.GroupRechargeRateTier{}, groupIn.RechargeRateTiers...)).
 		SetSortOrder(groupIn.SortOrder).
@@ -270,7 +272,9 @@ func (r *groupRepository) GetByID(ctx context.Context, id int64) (*service.Group
 		out.ActiveAccountCount = c.Active
 		out.RateLimitedAccountCount = c.RateLimited
 	}
-	return out, nil
+	view := []service.Group{*out}
+	r.hydrateDynamicRateRanges(ctx, view)
+	return &view[0], nil
 }
 
 func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.Group, error) {
@@ -294,6 +298,8 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
 		SetRateMultiplier(groupIn.RateMultiplier).
+		SetDynamicRateEnabled(groupIn.DynamicRateEnabled).
+		SetDynamicRateFactor(groupIn.DynamicRateFactorOrDefault()).
 		SetTimeRatePeriods(append([]service.GroupTimeRatePeriod{}, groupIn.TimeRatePeriods...)).
 		SetRechargeRateTiers(append([]service.GroupRechargeRateTier{}, groupIn.RechargeRateTiers...)).
 		SetIsExclusive(groupIn.IsExclusive).
@@ -540,6 +546,7 @@ func (r *groupRepository) listWithFiltersQuery(ctx context.Context, q *dbent.Gro
 		}
 	}
 
+	r.hydrateDynamicRateRanges(ctx, outGroups)
 	return outGroups, paginationResultFromTotal(int64(total), params), nil
 }
 
@@ -627,6 +634,7 @@ func (r *groupRepository) listWithAccountCountSort(ctx context.Context, q *dbent
 		}
 	}
 
+	r.hydrateDynamicRateRanges(ctx, outGroups)
 	return outGroups, paginationResultFromTotal(int64(total), params), nil
 }
 
@@ -711,6 +719,7 @@ func (r *groupRepository) ListActive(ctx context.Context) ([]service.Group, erro
 		}
 	}
 
+	r.hydrateDynamicRateRanges(ctx, outGroups)
 	return outGroups, nil
 }
 
@@ -784,6 +793,7 @@ func (r *groupRepository) ListActiveByPlatform(ctx context.Context, platform str
 		}
 	}
 
+	r.hydrateDynamicRateRanges(ctx, outGroups)
 	return outGroups, nil
 }
 

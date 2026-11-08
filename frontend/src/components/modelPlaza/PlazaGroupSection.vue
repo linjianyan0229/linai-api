@@ -12,9 +12,12 @@
           :subscription-type="(group.subscription_type || 'standard') as SubscriptionType"
           :rate-multiplier="group.rate_multiplier"
           :user-rate-multiplier="group.user_rate_multiplier ?? null"
+          :dynamic-rate-enabled="group.dynamic_rate_enabled"
+          :dynamic-rate-min="group.dynamic_rate_min"
+          :dynamic-rate-max="group.dynamic_rate_max"
           :time-rate-periods="group.time_rate_periods"
           :recharge-rate-enabled="group.recharge_rate_enabled"
-          :peak-rate-enabled="group.peak_rate_enabled"
+          :peak-rate-enabled="!group.dynamic_rate_enabled && group.peak_rate_enabled"
           :peak-start="group.peak_start"
           :peak-end="group.peak_end"
           :peak-rate-multiplier="group.peak_rate_multiplier"
@@ -51,13 +54,14 @@
         <Icon name="infoCircle" size="xs" class="h-3 w-3" />
         {{ longContextNote }}
       </p>
-      <p v-if="group.time_rate_periods?.length" class="mt-2 text-xs text-primary-600 dark:text-primary-300">{{ t('admin.groups.timeRates.schedule', { periods: formatGroupTimeRates(group) }) }}</p>
+      <p v-if="!group.dynamic_rate_enabled && group.time_rate_periods?.length" class="mt-2 text-xs text-primary-600 dark:text-primary-300">{{ t('admin.groups.timeRates.schedule', { periods: formatGroupTimeRates(group) }) }}</p>
+      <p v-if="group.dynamic_rate_enabled" class="mt-2 text-xs leading-relaxed text-primary-600 dark:text-primary-300">{{ dynamicRateRange(group) ? t('admin.groups.dynamicRates.pricingHint') : t('admin.groups.dynamicRates.noQuote') }}</p>
     </header>
 
     <!-- 模型价格表:整行(含 hover 底色/分区底色)顶到卡片边缘,左右留白由表格首列/末列的 padding 提供 -->
     <div>
       <PlazaModelPricingTable
-        v-if="group.models.length > 0"
+        v-if="group.models.length > 0 && (!group.dynamic_rate_enabled || dynamicRateRange(group))"
         :models="group.models"
         :effective-group-rate="group.time_rate_periods?.length ? currentTimeRate(group, group.user_rate_multiplier ?? group.rate_multiplier) : undefined"
         :platform="group.platform"
@@ -71,13 +75,14 @@
         :peak-rate-multiplier="group.peak_rate_multiplier"
       />
       <p v-else class="px-5 py-4 text-center text-sm text-gray-400 dark:text-dark-500">
-        {{ t('modelPlaza.detail.noModels') }}
+        {{ group.dynamic_rate_enabled && !dynamicRateRange(group) ? t('admin.groups.dynamicRates.noQuote') : t('modelPlaza.detail.noModels') }}
       </p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
+import { dynamicRateRange } from '@/utils/groupDynamicRates'
 import { useGroupTimeRate } from '@/composables/useGroupTimeRate'
 import { formatGroupTimeRates } from '@/utils/groupTimeRates'
 import { computed } from 'vue'
@@ -101,7 +106,7 @@ const currentTimeRate = useGroupTimeRate()
 
 /** 高峰窗口描述(含倍率与服务器时区标注);分组未启用高峰为空串。 */
 const peakWindow = computed(() => {
-  if (!hasPeakRate(props.group)) return ''
+  if (props.group.dynamic_rate_enabled || !hasPeakRate(props.group)) return ''
   return formatPeakRateWindow(
     props.group,
     serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset)

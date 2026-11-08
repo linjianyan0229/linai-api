@@ -148,6 +148,7 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 	}
 	out := &AdminGroup{
 		Group:                       groupFromServiceBase(g),
+		DynamicRateFactor:           g.DynamicRateFactorOrDefault(),
 		ForceOpenAIFast:             g.ForceOpenAIFast,
 		FreeOpenAIFast:              g.FreeOpenAIFast,
 		ProfitControlEnabled:        g.ProfitControlEnabled,
@@ -201,6 +202,9 @@ func groupFromServiceBase(g *service.Group) Group {
 		BatchImageHoldMultiplier:        g.BatchImageHoldMultiplier,
 		VideoRateIndependent:            g.VideoRateIndependent,
 		VideoRateMultiplier:             g.VideoRateMultiplier,
+		DynamicRateEnabled:              g.DynamicRateEnabled,
+		DynamicRateMin:                  g.DynamicRateMin,
+		DynamicRateMax:                  g.DynamicRateMax,
 		TimeRatePeriods:                 append([]service.GroupTimeRatePeriod{}, g.TimeRatePeriods...),
 		RechargeRateTiers:               append([]service.GroupRechargeRateTier{}, g.RechargeRateTiers...),
 		PeakRateEnabled:                 g.PeakRateEnabled,

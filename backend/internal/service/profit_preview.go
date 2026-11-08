@@ -45,13 +45,15 @@ const (
 
 // ProfitPreviewAccountVerdict 是单账号的预演结论。
 type ProfitPreviewAccountVerdict struct {
-	AccountID   int64    `json:"account_id"`
-	Name        string   `json:"name"`
-	Platform    string   `json:"platform"`
-	Class       string   `json:"class"`
-	AccountRate *float64 `json:"account_rate,omitempty"`
-	RateSource  string   `json:"rate_source"`
-	Warnings    []string `json:"warnings,omitempty"`
+	DynamicFinalRate *float64 `json:"dynamic_final_rate,omitempty"`
+	DynamicThreshold *float64 `json:"dynamic_threshold,omitempty"`
+	AccountID        int64    `json:"account_id"`
+	Name             string   `json:"name"`
+	Platform         string   `json:"platform"`
+	Class            string   `json:"class"`
+	AccountRate      *float64 `json:"account_rate,omitempty"`
+	RateSource       string   `json:"rate_source"`
+	Warnings         []string `json:"warnings,omitempty"`
 	// RejectedUnderMinD 表示账号在最低有效 D（用户覆盖最坏口径）下会被排除。
 	RejectedUnderMinD bool `json:"rejected_under_min_d,omitempty"`
 	// SupportedModels 为该账号支持的主力模型子集。
@@ -60,11 +62,12 @@ type ProfitPreviewAccountVerdict struct {
 
 // ProfitPreviewGroupReport 是单分组的预演报告。
 type ProfitPreviewGroupReport struct {
-	GroupID        int64  `json:"group_id"`
-	GroupName      string `json:"group_name"`
-	Platform       string `json:"platform"`
-	EffectiveGate  bool   `json:"effective_gate"`
-	AssumedEnabled bool   `json:"assumed_enabled,omitempty"`
+	DynamicRateEnabled bool   `json:"dynamic_rate_enabled,omitempty"`
+	GroupID            int64  `json:"group_id"`
+	GroupName          string `json:"group_name"`
+	Platform           string `json:"platform"`
+	EffectiveGate      bool   `json:"effective_gate"`
+	AssumedEnabled     bool   `json:"assumed_enabled,omitempty"`
 	// DefaultD / MinEffectiveD：分组默认 D 与最低有效 D（含 evalAt 高峰因子；
 	// MinEffectiveD = min(分组默认, 全部非空用户覆盖) × 高峰因子）。
 	DefaultD      float64 `json:"default_d"`
@@ -123,6 +126,27 @@ func PreviewProfitAdmission(inputs []ProfitPreviewGroupInput, evalAt time.Time) 
 		deduction := group.ProfitMinMargin + group.ProfitSafetyBuffer
 		thresholdDefault := clampProfitControlThreshold(defaultD * (1 - deduction))
 		thresholdMinD := clampProfitControlThreshold(minD * (1 - deduction))
+
+		if group.DynamicRateEnabled {
+			report.DynamicRateEnabled = true
+			first := true
+			defaultD, minD = 0, 0
+			for _, account := range in.Accounts {
+				quote, quoteErr := dynamicRateQuote(group, account, evalAt)
+				if quoteErr != nil || quote == nil {
+					continue
+				}
+				if first || quote.Rate > defaultD {
+					defaultD = quote.Rate
+				}
+				if first || quote.Rate < minD {
+					minD = quote.Rate
+				}
+				first = false
+			}
+			thresholdDefault = defaultD * (1 - deduction)
+			thresholdMinD = minD * (1 - deduction)
+		}
 		report.DefaultD = defaultD
 		report.MinEffectiveD = minD
 		report.ThresholdDefault = thresholdDefault
@@ -133,6 +157,21 @@ func PreviewProfitAdmission(inputs []ProfitPreviewGroupInput, evalAt time.Time) 
 				continue
 			}
 			verdict := previewAccountProfitAdmission(account, effectiveGate, thresholdDefault, thresholdMinD, evalAt)
+			if group.DynamicRateEnabled {
+				quote, quoteErr := dynamicRateQuote(group, account, evalAt)
+				if quoteErr != nil || quote == nil {
+					verdict.Class = ProfitPreviewClassRejectedInvalidRate
+					verdict.Warnings = []string{"dynamic_rate_unavailable"}
+					verdict.AccountRate = nil
+				} else {
+					threshold := quote.Rate * (1 - deduction)
+					verdict = previewAccountProfitAdmission(account, effectiveGate, threshold, threshold, evalAt)
+					verdict.DynamicFinalRate = &quote.Rate
+					verdict.DynamicThreshold = &threshold
+					verdict.Warnings = nil
+				}
+				verdict.RateSource = ProfitPreviewRateSourceUpstreamProbe
+			}
 			admittedDefault := verdict.Class == ProfitPreviewClassAdmitted
 			admittedMinD := admittedDefault && !verdict.RejectedUnderMinD
 			for _, model := range in.Models {

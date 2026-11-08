@@ -387,11 +387,12 @@ type InflightEstimateRequest struct {
 
 // inflightEstimateDeps 两种网关 service 共用的估算依赖。
 type inflightEstimateDeps struct {
-	cfg            *config.Config
-	billing        *BillingService
-	resolver       *ModelPricingResolver
-	resolveMapping func(ctx context.Context, groupID int64, model string) ChannelMappingResult
-	userGroupRate  func(ctx context.Context, userID, groupID int64, groupDefault float64) float64
+	cfg                *config.Config
+	billing            *BillingService
+	resolver           *ModelPricingResolver
+	resolveMapping     func(ctx context.Context, groupID int64, model string) ChannelMappingResult
+	dynamicRateCeiling func(context.Context, *APIKey) (float64, bool)
+	userGroupRate      func(ctx context.Context, userID, groupID int64, groupDefault float64) float64
 	// accountMappedModels 返回调度器可选账号对 model 的账号级映射结果（去重，不含 model 本身）。
 	// 准入时账号尚未选定，计费侧 billableModelWithFallback 会回退到实际转发模型（UpstreamModel，
 	// 即账号映射后的模型），因此这里取所有候选映射模型的最高估算。
@@ -489,6 +490,14 @@ func inflightBillingModelCandidates(ctx context.Context, deps inflightEstimateDe
 }
 
 func (d inflightEstimateDeps) rates(ctx context.Context, apiKey *APIKey) (text, image float64) {
+	if apiKey != nil && apiKey.Group != nil && apiKey.Group.DynamicRateEnabled {
+		if d.dynamicRateCeiling != nil {
+			if rate, ok := d.dynamicRateCeiling(ctx, apiKey); ok {
+				return rate, resolveImageRateMultiplier(apiKey, rate)
+			}
+		}
+		return math.NaN(), math.NaN()
+	}
 	rate := 1.0
 	if d.cfg != nil && d.cfg.Default.RateMultiplier > 0 {
 		rate = d.cfg.Default.RateMultiplier
@@ -644,6 +653,9 @@ func (d inflightEstimateDeps) estimate(ctx context.Context, apiKey *APIKey, req 
 		return 0, true
 	}
 	textRate, imageRate := d.rates(ctx, apiKey)
+	if math.IsNaN(textRate) || math.IsNaN(imageRate) {
+		return 0, false
+	}
 	if textRate <= 0 && imageRate <= 0 {
 		// 免费分组：不计费，也无需预留。
 		return 0, true
@@ -719,6 +731,7 @@ func (s *GatewayService) inflightEstimateDeps() inflightEstimateDeps {
 	d.userGroupRate = s.getUserGroupRateMultiplier
 	if s.schedulerSnapshot != nil {
 		snap := s.schedulerSnapshot
+		d.dynamicRateCeiling = inflightDynamicRateCeiling(snap)
 		d.accountMappedModels = inflightAccountMappedModelsFromSnapshot(
 			func(ctx context.Context, groupID *int64, platform string, forced bool) ([]Account, error) {
 				accounts, _, err := snap.ListSchedulableAccounts(ctx, groupID, platform, forced)
@@ -750,6 +763,7 @@ func (s *OpenAIGatewayService) inflightEstimateDeps() inflightEstimateDeps {
 	d.userGroupRate = s.ResolveUserGroupRateMultiplier
 	if s.schedulerSnapshot != nil {
 		snap := s.schedulerSnapshot
+		d.dynamicRateCeiling = inflightDynamicRateCeiling(snap)
 		d.accountMappedModels = inflightAccountMappedModelsFromSnapshot(
 			func(ctx context.Context, groupID *int64, platform string, forced bool) ([]Account, error) {
 				accounts, _, err := snap.ListSchedulableAccounts(ctx, groupID, platform, forced)

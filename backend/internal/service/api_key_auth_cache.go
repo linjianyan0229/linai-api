@@ -126,6 +126,8 @@ type APIKeyAuthGroupSnapshot struct {
 	// 高峰时段倍率：PeakRateEnabled 为 true 且请求时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费倍率额外乘以 PeakRateMultiplier（详见 Group.PeakMultiplierAt）。
 	// 必须随快照缓存，否则扣费路径拿到的 apiKey.Group 缺字段、高峰倍率失效。
+	DynamicRateEnabled bool                    `json:"dynamic_rate_enabled"`
+	DynamicRateFactor  float64                 `json:"dynamic_rate_factor"`
 	TimeRatePeriods    []GroupTimeRatePeriod   `json:"time_rate_periods"`
 	RechargeRateTiers  []GroupRechargeRateTier `json:"recharge_rate_tiers"`
 	PeakRateEnabled    bool                    `json:"peak_rate_enabled"`

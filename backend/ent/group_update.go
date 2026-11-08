@@ -124,6 +124,41 @@ func (_u *GroupUpdate) AddRateMultiplier(v float64) *GroupUpdate {
 	return _u
 }
 
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (_u *GroupUpdate) SetDynamicRateEnabled(v bool) *GroupUpdate {
+	_u.mutation.SetDynamicRateEnabled(v)
+	return _u
+}
+
+// SetNillableDynamicRateEnabled sets the "dynamic_rate_enabled" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableDynamicRateEnabled(v *bool) *GroupUpdate {
+	if v != nil {
+		_u.SetDynamicRateEnabled(*v)
+	}
+	return _u
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (_u *GroupUpdate) SetDynamicRateFactor(v float64) *GroupUpdate {
+	_u.mutation.ResetDynamicRateFactor()
+	_u.mutation.SetDynamicRateFactor(v)
+	return _u
+}
+
+// SetNillableDynamicRateFactor sets the "dynamic_rate_factor" field if the given value is not nil.
+func (_u *GroupUpdate) SetNillableDynamicRateFactor(v *float64) *GroupUpdate {
+	if v != nil {
+		_u.SetDynamicRateFactor(*v)
+	}
+	return _u
+}
+
+// AddDynamicRateFactor adds value to the "dynamic_rate_factor" field.
+func (_u *GroupUpdate) AddDynamicRateFactor(v float64) *GroupUpdate {
+	_u.mutation.AddDynamicRateFactor(v)
+	return _u
+}
+
 // SetRechargeRateTiers sets the "recharge_rate_tiers" field.
 func (_u *GroupUpdate) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupUpdate {
 	_u.mutation.SetRechargeRateTiers(v)
@@ -1634,6 +1669,15 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.DynamicRateEnabled(); ok {
+		_spec.SetField(group.FieldDynamicRateEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DynamicRateFactor(); ok {
+		_spec.SetField(group.FieldDynamicRateFactor, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDynamicRateFactor(); ok {
+		_spec.AddField(group.FieldDynamicRateFactor, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.RechargeRateTiers(); ok {
 		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
 	}
@@ -2381,6 +2425,41 @@ func (_u *GroupUpdateOne) SetNillableRateMultiplier(v *float64) *GroupUpdateOne 
 // AddRateMultiplier adds value to the "rate_multiplier" field.
 func (_u *GroupUpdateOne) AddRateMultiplier(v float64) *GroupUpdateOne {
 	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (_u *GroupUpdateOne) SetDynamicRateEnabled(v bool) *GroupUpdateOne {
+	_u.mutation.SetDynamicRateEnabled(v)
+	return _u
+}
+
+// SetNillableDynamicRateEnabled sets the "dynamic_rate_enabled" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableDynamicRateEnabled(v *bool) *GroupUpdateOne {
+	if v != nil {
+		_u.SetDynamicRateEnabled(*v)
+	}
+	return _u
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (_u *GroupUpdateOne) SetDynamicRateFactor(v float64) *GroupUpdateOne {
+	_u.mutation.ResetDynamicRateFactor()
+	_u.mutation.SetDynamicRateFactor(v)
+	return _u
+}
+
+// SetNillableDynamicRateFactor sets the "dynamic_rate_factor" field if the given value is not nil.
+func (_u *GroupUpdateOne) SetNillableDynamicRateFactor(v *float64) *GroupUpdateOne {
+	if v != nil {
+		_u.SetDynamicRateFactor(*v)
+	}
+	return _u
+}
+
+// AddDynamicRateFactor adds value to the "dynamic_rate_factor" field.
+func (_u *GroupUpdateOne) AddDynamicRateFactor(v float64) *GroupUpdateOne {
+	_u.mutation.AddDynamicRateFactor(v)
 	return _u
 }
 
@@ -3923,6 +4002,15 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(group.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.DynamicRateEnabled(); ok {
+		_spec.SetField(group.FieldDynamicRateEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DynamicRateFactor(); ok {
+		_spec.SetField(group.FieldDynamicRateFactor, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDynamicRateFactor(); ok {
+		_spec.AddField(group.FieldDynamicRateFactor, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.RechargeRateTiers(); ok {
 		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)

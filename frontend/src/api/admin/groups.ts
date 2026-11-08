@@ -470,7 +470,19 @@ export async function getCapacitySummary(): Promise<
   return data
 }
 
+export interface GroupDynamicRateAvailability {
+  eligible_accounts: number
+  upstream_min: number | null
+  upstream_max: number | null
+}
+
+export async function getDynamicRateAvailability(id: number, signal?: AbortSignal): Promise<GroupDynamicRateAvailability> {
+  const { data } = await apiClient.get<GroupDynamicRateAvailability>(`/admin/groups/${id}/dynamic-rate-availability`, { signal })
+  return data
+}
+
 export const groupsAPI = {
+  getDynamicRateAvailability,
   list,
   getAll,
   getByPlatform,

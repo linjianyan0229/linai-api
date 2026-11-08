@@ -53,6 +53,9 @@
                   :platform="k.group.platform"
                   :subscription-type="k.group.subscription_type"
                   :rate-multiplier="k.group.rate_multiplier"
+        :dynamic-rate-enabled="k.group.dynamic_rate_enabled"
+        :dynamic-rate-min="k.group.dynamic_rate_min"
+        :dynamic-rate-max="k.group.dynamic_rate_max"
                   :user-rate-multiplier="userGroupRates[k.group.id]"
                 />
                 <span v-else class="text-xs text-gray-400">—</span>

@@ -30,6 +30,10 @@ const (
 	FieldI18n = "i18n"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldDynamicRateEnabled holds the string denoting the dynamic_rate_enabled field in the database.
+	FieldDynamicRateEnabled = "dynamic_rate_enabled"
+	// FieldDynamicRateFactor holds the string denoting the dynamic_rate_factor field in the database.
+	FieldDynamicRateFactor = "dynamic_rate_factor"
 	// FieldRechargeRateTiers holds the string denoting the recharge_rate_tiers field in the database.
 	FieldRechargeRateTiers = "recharge_rate_tiers"
 	// FieldTimeRatePeriods holds the string denoting the time_rate_periods field in the database.
@@ -238,6 +242,8 @@ var Columns = []string{
 	FieldDescription,
 	FieldI18n,
 	FieldRateMultiplier,
+	FieldDynamicRateEnabled,
+	FieldDynamicRateFactor,
 	FieldRechargeRateTiers,
 	FieldTimeRatePeriods,
 	FieldPeakRateEnabled,
@@ -342,6 +348,10 @@ var (
 	DefaultI18n domain.GroupI18n
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// DefaultDynamicRateEnabled holds the default value on creation for the "dynamic_rate_enabled" field.
+	DefaultDynamicRateEnabled bool
+	// DefaultDynamicRateFactor holds the default value on creation for the "dynamic_rate_factor" field.
+	DefaultDynamicRateFactor float64
 	// DefaultRechargeRateTiers holds the default value on creation for the "recharge_rate_tiers" field.
 	DefaultRechargeRateTiers []domain.GroupRechargeRateTier
 	// DefaultTimeRatePeriods holds the default value on creation for the "time_rate_periods" field.
@@ -492,6 +502,16 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByDynamicRateEnabled orders the results by the dynamic_rate_enabled field.
+func ByDynamicRateEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDynamicRateEnabled, opts...).ToFunc()
+}
+
+// ByDynamicRateFactor orders the results by the dynamic_rate_factor field.
+func ByDynamicRateFactor(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDynamicRateFactor, opts...).ToFunc()
 }
 
 // ByPeakRateEnabled orders the results by the peak_rate_enabled field.

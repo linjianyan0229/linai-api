@@ -51,14 +51,15 @@ type OpenAIRecordUsageInput struct {
 // 用量按上游真实 token 计费，与 WS cyber 及正常请求口径一致（InputTokens/OutputTokens
 // 取自上游 response.failed 报告的 usage，即 mark.UpstreamInTok/OutTok）。
 type CyberPolicyUsageInput struct {
-	APIKey       *APIKey
-	Account      *Account
-	Subscription *UserSubscription
-	RequestID    string
-	Model        string
-	Stream       bool
-	InputTokens  int
-	OutputTokens int
+	DynamicGroupPricing *DynamicGroupPricing
+	APIKey              *APIKey
+	Account             *Account
+	Subscription        *UserSubscription
+	RequestID           string
+	Model               string
+	Stream              bool
+	InputTokens         int
+	OutputTokens        int
 	// 渠道归因与请求级 meta，使 cyber 计费行与正常 RecordUsage 行口径一致
 	// （否则 cyber 行 channel_id 等为空，渠道维度统计会遗漏 cyber 命中）。
 	InboundEndpoint    string
@@ -83,9 +84,10 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 		return
 	}
 	result := &OpenAIForwardResult{
-		RequestID: in.RequestID,
-		Model:     in.Model,
-		Stream:    in.Stream,
+		DynamicGroupPricing: in.DynamicGroupPricing,
+		RequestID:           in.RequestID,
+		Model:               in.Model,
+		Stream:              in.Stream,
 		Usage: OpenAIUsage{
 			InputTokens:  in.InputTokens,
 			OutputTokens: in.OutputTokens,
@@ -210,6 +212,21 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	pricingAt := openAIUsagePricingAt(input)
 	baseMultiplier := TimeAdjustedGroupRate(apiKey, multiplier, pricingAt)
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
+	dynamicPreflightAudit := false
+	dynamicRate, dynamic, dynamicErr := dynamicUsageRate(apiKey.Group, account, result.DynamicGroupPricing)
+	if dynamicErr != nil {
+		if result.DynamicGroupPricing != nil || !input.CyberBlocked || result.AudioUsage != nil || result.SearchCount != 0 || result.Usage != (OpenAIUsage{}) || result.ImageCount != 0 || result.VideoCount != 0 || result.WebSearchCalls != 0 {
+			return dynamicErr
+		}
+		// A zero-usage preflight denial is an audit record, not a paid upstream attempt.
+		dynamicPreflightAudit = true
+		dynamicRate, dynamic = 0, true
+	}
+	if dynamic {
+		baseMultiplier = dynamicRate
+		multiplier = dynamicRate
+		imageMultiplier = resolveImageRateMultiplier(apiKey, dynamicRate)
+	}
 	videoMultiplier := resolveVideoRateMultiplier(apiKey, baseMultiplier)
 
 	var cost *CostBreakdown
@@ -337,7 +354,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Create usage log
 	durationMs := int(result.Duration.Milliseconds())
+	if dynamicPreflightAudit {
+		cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
+	}
 	accountRateMultiplier := account.BillingRateMultiplier()
+	if dynamic && result.DynamicGroupPricing != nil {
+		accountRateMultiplier = result.DynamicGroupPricing.AccountCostRate
+	}
 	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
 	if result.OpenAIWSMode {
 		if upstreamRequestID := strings.TrimSpace(result.RequestID); upstreamRequestID != "" {

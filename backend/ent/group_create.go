@@ -112,6 +112,34 @@ func (_c *GroupCreate) SetNillableRateMultiplier(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (_c *GroupCreate) SetDynamicRateEnabled(v bool) *GroupCreate {
+	_c.mutation.SetDynamicRateEnabled(v)
+	return _c
+}
+
+// SetNillableDynamicRateEnabled sets the "dynamic_rate_enabled" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableDynamicRateEnabled(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetDynamicRateEnabled(*v)
+	}
+	return _c
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (_c *GroupCreate) SetDynamicRateFactor(v float64) *GroupCreate {
+	_c.mutation.SetDynamicRateFactor(v)
+	return _c
+}
+
+// SetNillableDynamicRateFactor sets the "dynamic_rate_factor" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableDynamicRateFactor(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetDynamicRateFactor(*v)
+	}
+	return _c
+}
+
 // SetRechargeRateTiers sets the "recharge_rate_tiers" field.
 func (_c *GroupCreate) SetRechargeRateTiers(v []domain.GroupRechargeRateTier) *GroupCreate {
 	_c.mutation.SetRechargeRateTiers(v)
@@ -1087,6 +1115,14 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.DynamicRateEnabled(); !ok {
+		v := group.DefaultDynamicRateEnabled
+		_c.mutation.SetDynamicRateEnabled(v)
+	}
+	if _, ok := _c.mutation.DynamicRateFactor(); !ok {
+		v := group.DefaultDynamicRateFactor
+		_c.mutation.SetDynamicRateFactor(v)
+	}
 	if _, ok := _c.mutation.RechargeRateTiers(); !ok {
 		v := group.DefaultRechargeRateTiers
 		_c.mutation.SetRechargeRateTiers(v)
@@ -1283,6 +1319,12 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.DynamicRateEnabled(); !ok {
+		return &ValidationError{Name: "dynamic_rate_enabled", err: errors.New(`ent: missing required field "Group.dynamic_rate_enabled"`)}
+	}
+	if _, ok := _c.mutation.DynamicRateFactor(); !ok {
+		return &ValidationError{Name: "dynamic_rate_factor", err: errors.New(`ent: missing required field "Group.dynamic_rate_factor"`)}
 	}
 	if _, ok := _c.mutation.RechargeRateTiers(); !ok {
 		return &ValidationError{Name: "recharge_rate_tiers", err: errors.New(`ent: missing required field "Group.recharge_rate_tiers"`)}
@@ -1532,6 +1574,14 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.DynamicRateEnabled(); ok {
+		_spec.SetField(group.FieldDynamicRateEnabled, field.TypeBool, value)
+		_node.DynamicRateEnabled = value
+	}
+	if value, ok := _c.mutation.DynamicRateFactor(); ok {
+		_spec.SetField(group.FieldDynamicRateFactor, field.TypeFloat64, value)
+		_node.DynamicRateFactor = value
 	}
 	if value, ok := _c.mutation.RechargeRateTiers(); ok {
 		_spec.SetField(group.FieldRechargeRateTiers, field.TypeJSON, value)
@@ -2028,6 +2078,36 @@ func (u *GroupUpsert) UpdateRateMultiplier() *GroupUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *GroupUpsert) AddRateMultiplier(v float64) *GroupUpsert {
 	u.Add(group.FieldRateMultiplier, v)
+	return u
+}
+
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (u *GroupUpsert) SetDynamicRateEnabled(v bool) *GroupUpsert {
+	u.Set(group.FieldDynamicRateEnabled, v)
+	return u
+}
+
+// UpdateDynamicRateEnabled sets the "dynamic_rate_enabled" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateDynamicRateEnabled() *GroupUpsert {
+	u.SetExcluded(group.FieldDynamicRateEnabled)
+	return u
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (u *GroupUpsert) SetDynamicRateFactor(v float64) *GroupUpsert {
+	u.Set(group.FieldDynamicRateFactor, v)
+	return u
+}
+
+// UpdateDynamicRateFactor sets the "dynamic_rate_factor" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateDynamicRateFactor() *GroupUpsert {
+	u.SetExcluded(group.FieldDynamicRateFactor)
+	return u
+}
+
+// AddDynamicRateFactor adds v to the "dynamic_rate_factor" field.
+func (u *GroupUpsert) AddDynamicRateFactor(v float64) *GroupUpsert {
+	u.Add(group.FieldDynamicRateFactor, v)
 	return u
 }
 
@@ -3195,6 +3275,41 @@ func (u *GroupUpsertOne) AddRateMultiplier(v float64) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRateMultiplier() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (u *GroupUpsertOne) SetDynamicRateEnabled(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDynamicRateEnabled(v)
+	})
+}
+
+// UpdateDynamicRateEnabled sets the "dynamic_rate_enabled" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateDynamicRateEnabled() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDynamicRateEnabled()
+	})
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (u *GroupUpsertOne) SetDynamicRateFactor(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDynamicRateFactor(v)
+	})
+}
+
+// AddDynamicRateFactor adds v to the "dynamic_rate_factor" field.
+func (u *GroupUpsertOne) AddDynamicRateFactor(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddDynamicRateFactor(v)
+	})
+}
+
+// UpdateDynamicRateFactor sets the "dynamic_rate_factor" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateDynamicRateFactor() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDynamicRateFactor()
 	})
 }
 
@@ -4697,6 +4812,41 @@ func (u *GroupUpsertBulk) AddRateMultiplier(v float64) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRateMultiplier() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetDynamicRateEnabled sets the "dynamic_rate_enabled" field.
+func (u *GroupUpsertBulk) SetDynamicRateEnabled(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDynamicRateEnabled(v)
+	})
+}
+
+// UpdateDynamicRateEnabled sets the "dynamic_rate_enabled" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateDynamicRateEnabled() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDynamicRateEnabled()
+	})
+}
+
+// SetDynamicRateFactor sets the "dynamic_rate_factor" field.
+func (u *GroupUpsertBulk) SetDynamicRateFactor(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDynamicRateFactor(v)
+	})
+}
+
+// AddDynamicRateFactor adds v to the "dynamic_rate_factor" field.
+func (u *GroupUpsertBulk) AddDynamicRateFactor(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddDynamicRateFactor(v)
+	})
+}
+
+// UpdateDynamicRateFactor sets the "dynamic_rate_factor" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateDynamicRateFactor() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDynamicRateFactor()
 	})
 }
 

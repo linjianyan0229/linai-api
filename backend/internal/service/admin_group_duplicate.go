@@ -100,6 +100,8 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 		I18n:                            cloneGroupI18nForDuplicate(source.I18n),
 		Platform:                        source.Platform,
 		RateMultiplier:                  source.RateMultiplier,
+		DynamicRateEnabled:              false, // a copied group requires fresh explicit activation
+		DynamicRateFactor:               source.DynamicRateFactor,
 		TimeRatePeriods:                 append([]GroupTimeRatePeriod{}, source.TimeRatePeriods...),
 		RechargeRateTiers:               append([]GroupRechargeRateTier{}, source.RechargeRateTiers...),
 		PeakRateEnabled:                 source.PeakRateEnabled,

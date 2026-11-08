@@ -42,6 +42,9 @@
           :platform="group.platform"
           :subscription-type="group.subscription_type || undefined"
           :rate-multiplier="group.rate_multiplier == null ? undefined : group.rate_multiplier"
+        :dynamic-rate-enabled="group.rate_multiplier == null ? undefined : group.dynamic_rate_enabled"
+        :dynamic-rate-min="group.rate_multiplier == null ? undefined : group.dynamic_rate_min"
+        :dynamic-rate-max="group.rate_multiplier == null ? undefined : group.dynamic_rate_max"
           class="min-w-0 flex-1"
         />
         <span class="shrink-0 text-xs text-gray-400">{{ group.account_count || 0 }}</span>

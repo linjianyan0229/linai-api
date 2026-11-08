@@ -581,12 +581,23 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		return nil, err
 	}
 
+	if input.DynamicRateEnabled {
+		return nil, infraerrors.BadRequest("DYNAMIC_RATE_REQUIRES_EXISTING_GROUP", "create the group and bind a supported upstream before enabling dynamic pricing")
+	}
+	dynamicFactor := input.DynamicRateFactor
+	if dynamicFactor == 0 {
+		dynamicFactor = 2
+	}
+	if err := ValidateGroupDynamicRate(false, dynamicFactor, platform); err != nil {
+		return nil, err
+	}
 	group := &Group{
 		Name:                            input.Name,
 		Description:                     input.Description,
 		I18n:                            i18n,
 		Platform:                        platform,
 		RateMultiplier:                  input.RateMultiplier,
+		DynamicRateFactor:               dynamicFactor,
 		TimeRatePeriods:                 append([]GroupTimeRatePeriod{}, input.TimeRatePeriods...),
 		RechargeRateTiers:               append([]GroupRechargeRateTier{}, input.RechargeRateTiers...),
 		IsExclusive:                     input.IsExclusive,
@@ -1110,6 +1121,21 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		}
 	}
 
+	previousDynamicEnabled, previousDynamicFactor := group.DynamicRateEnabled, group.DynamicRateFactor
+	if input.DynamicRateEnabled != nil {
+		group.DynamicRateEnabled = *input.DynamicRateEnabled
+	}
+	if input.DynamicRateFactor != nil {
+		group.DynamicRateFactor = *input.DynamicRateFactor
+	}
+	if err := ValidateGroupDynamicRate(group.DynamicRateEnabled, group.DynamicRateFactor, group.Platform); err != nil {
+		return nil, err
+	}
+	if group.DynamicRateEnabled && (!previousDynamicEnabled || group.DynamicRateFactor != previousDynamicFactor) {
+		if err := s.validateDynamicRateActivation(ctx, group); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
 	}

@@ -39,6 +39,7 @@ type AdminService interface {
 	// ordered by sort_order then id. Used by the API Key group filter dropdown.
 	GetAllGroupsIncludingInactive(ctx context.Context) ([]Group, error)
 	GetGroup(ctx context.Context, id int64) (*Group, error)
+	GetGroupDynamicRateAvailability(ctx context.Context, groupID int64) (*GroupDynamicRateAvailability, error)
 	GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error)
 	CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error)
 	// DuplicateGroup creates an inactive independent copy of a group's configuration
@@ -237,6 +238,8 @@ type CreateGroupInput struct {
 	Description               string
 	I18n                      GroupI18n // 名称与描述的界面语言译文
 	Platform                  string
+	DynamicRateEnabled        bool
+	DynamicRateFactor         float64
 	TimeRatePeriods           []GroupTimeRatePeriod
 	RechargeRateTiers         []GroupRechargeRateTier
 	RateMultiplier            float64
@@ -321,6 +324,8 @@ type UpdateGroupInput struct {
 	Description               *string
 	I18n                      *GroupI18n // nil 表示不修改；非 nil 整体替换
 	Platform                  string
+	DynamicRateEnabled        *bool
+	DynamicRateFactor         *float64
 	TimeRatePeriods           *[]GroupTimeRatePeriod
 	RechargeRateTiers         *[]GroupRechargeRateTier
 	RateMultiplier            *float64 // 使用指针以支持设置为0
