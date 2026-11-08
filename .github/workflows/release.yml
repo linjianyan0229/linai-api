@@ -169,11 +169,14 @@ jobs:
           TARGET_OS: ${{ matrix.goos }}
           TARGET_ARCH: ${{ matrix.goarch }}
         run: python "$RUNNER_TEMP/release-tools/release_matrix.py" config build --goos "$TARGET_OS" --goarch "$TARGET_ARCH" --output "$RUNNER_TEMP/goreleaser.matrix.yaml"
+      - name: Install pinned GoReleaser from source
+        env:
+          GOBIN: ${{ runner.temp }}/release-bin
+        run: |
+          go install github.com/goreleaser/goreleaser/v2@v2.20.0
+          echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Build and archive without publishing
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          version: '~> v2'
-          args: release --snapshot --clean --skip=validate,publish,docker,announce --config=${{ runner.temp }}/goreleaser.matrix.yaml
+        run: goreleaser release --snapshot --clean --skip=validate,publish,docker,announce --config="${{ runner.temp }}/goreleaser.matrix.yaml"
         env:
           GITHUB_REPO_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO_OWNER_LOWER: ${{ needs.prepare.outputs.owner_lower }}
@@ -278,11 +281,14 @@ jobs:
           args=(publish --output "$RUNNER_TEMP/goreleaser.publisher.yaml")
           if [[ "$SIMPLE_RELEASE" == true ]]; then args+=(--simple); fi
           python "$RUNNER_TEMP/release-tools/release_matrix.py" config "${args[@]}"
+      - name: Install pinned GoReleaser from source
+        env:
+          GOBIN: ${{ runner.temp }}/release-bin
+        run: |
+          go install github.com/goreleaser/goreleaser/v2@v2.20.0
+          echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Publish existing archives and release notes
-        uses: goreleaser/goreleaser-action@v7
-        with:
-          version: '~> v2'
-          args: release --clean --skip=validate,before,docker ${{ env.DRY_RUN == 'true' && '--snapshot --skip=publish,announce' || '' }} --config=${{ runner.temp }}/goreleaser.publisher.yaml
+        run: goreleaser release --clean --skip=validate,before,docker ${{ env.DRY_RUN == 'true' && '--snapshot --skip=publish,announce' || '' }} --config="${{ runner.temp }}/goreleaser.publisher.yaml"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ needs.prepare.outputs.tag }}
