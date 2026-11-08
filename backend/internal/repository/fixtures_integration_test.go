@@ -89,6 +89,8 @@ func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *serv
 		SetStatus(g.Status).
 		SetSubscriptionType(g.SubscriptionType).
 		SetRateMultiplier(g.RateMultiplier).
+		SetDynamicRateEnabled(g.DynamicRateEnabled).
+		SetDynamicRateFactor(g.DynamicRateFactorOrDefault()).
 		SetIsExclusive(g.IsExclusive).
 		SetForceOpenaiFast(g.ForceOpenAIFast).
 		SetFreeOpenaiFast(g.FreeOpenAIFast).
