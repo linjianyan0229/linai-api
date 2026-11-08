@@ -38,10 +38,14 @@ func TestGroupDynamicRateValidationAndExpiry(t *testing.T) {
 		func(a *Account) { a.Platform = PlatformAnthropic },
 		func(a *Account) { delete(a.Extra, UpstreamBillingProbeExtraKey) },
 		func(a *Account) {
-			a.Extra[UpstreamBillingProbeExtraKey].(map[string]any)["status"] = UpstreamBillingProbeStatusFailed
+			snapshot, ok := a.Extra[UpstreamBillingProbeExtraKey].(map[string]any)
+			require.True(t, ok)
+			snapshot["status"] = UpstreamBillingProbeStatusFailed
 		},
 		func(a *Account) {
-			a.Extra[UpstreamBillingProbeExtraKey].(map[string]any)["status"] = UpstreamBillingProbeStatusUnsupported
+			snapshot, ok := a.Extra[UpstreamBillingProbeExtraKey].(map[string]any)
+			require.True(t, ok)
+			snapshot["status"] = UpstreamBillingProbeStatusUnsupported
 		},
 	} {
 		a := dynamicTestAccount(t, 3, .08, now)
