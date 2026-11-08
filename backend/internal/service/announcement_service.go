@@ -209,6 +209,11 @@ func (s *AnnouncementService) Update(ctx context.Context, id int64, input *Updat
 	return a, nil
 }
 
+// SetPinned changes display priority without editing publication or read state.
+func (s *AnnouncementService) SetPinned(ctx context.Context, id int64, pinned bool, actorID *int64) (*Announcement, error) {
+	return s.announcementRepo.SetPinned(ctx, id, pinned, actorID)
+}
+
 func (s *AnnouncementService) Delete(ctx context.Context, id int64) error {
 	if err := s.announcementRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete announcement: %w", err)
@@ -286,9 +291,12 @@ func (s *AnnouncementService) ListForUser(ctx context.Context, userID int64, unr
 		})
 	}
 
-	// 未读优先、同状态按创建时间倒序
+	// 置顶优先，其次未读优先，同状态按 ID 倒序。
 	sort.Slice(out, func(i, j int) bool {
 		ai, aj := out[i], out[j]
+		if ai.Announcement.IsPinned != aj.Announcement.IsPinned {
+			return ai.Announcement.IsPinned
+		}
 		if (ai.ReadAt == nil) != (aj.ReadAt == nil) {
 			return ai.ReadAt == nil
 		}

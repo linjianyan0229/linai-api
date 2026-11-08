@@ -34,6 +34,7 @@
               </div>
 
               <!-- Title -->
+              <span v-if="displayedAnnouncement.is_pinned" class="badge badge-primary mb-2">{{ t('announcements.pinned') }}</span>
               <h2 class="mb-2 text-2xl font-bold leading-tight text-gray-900 dark:text-white">
                 {{ displayedAnnouncement.title }}
               </h2>
@@ -97,7 +98,7 @@ import { formatRelativeWithDateTime } from '@/utils/format'
 import type { Announcement, UserAnnouncement } from '@/types'
 import '@/styles/announcement-markdown.css'
 
-type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
+type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at' | 'is_pinned'>
 
 const props = withDefaults(defineProps<{
   announcement?: PreviewAnnouncement | null

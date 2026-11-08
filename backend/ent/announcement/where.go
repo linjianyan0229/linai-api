@@ -75,6 +75,11 @@ func NotifyMode(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldNotifyMode, v))
 }
 
+// IsPinned applies equality check predicate on the "is_pinned" field. It's identical to IsPinnedEQ.
+func IsPinned(v bool) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldIsPinned, v))
+}
+
 // StartsAt applies equality check predicate on the "starts_at" field. It's identical to StartsAtEQ.
 func StartsAt(v time.Time) predicate.Announcement {
 	return predicate.Announcement(sql.FieldEQ(FieldStartsAt, v))
@@ -363,6 +368,16 @@ func NotifyModeEqualFold(v string) predicate.Announcement {
 // NotifyModeContainsFold applies the ContainsFold predicate on the "notify_mode" field.
 func NotifyModeContainsFold(v string) predicate.Announcement {
 	return predicate.Announcement(sql.FieldContainsFold(FieldNotifyMode, v))
+}
+
+// IsPinnedEQ applies the EQ predicate on the "is_pinned" field.
+func IsPinnedEQ(v bool) predicate.Announcement {
+	return predicate.Announcement(sql.FieldEQ(FieldIsPinned, v))
+}
+
+// IsPinnedNEQ applies the NEQ predicate on the "is_pinned" field.
+func IsPinnedNEQ(v bool) predicate.Announcement {
+	return predicate.Announcement(sql.FieldNEQ(FieldIsPinned, v))
 }
 
 // TargetingIsNil applies the IsNil predicate on the "targeting" field.

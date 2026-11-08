@@ -379,6 +379,11 @@ export default {
       editAnnouncement: '编辑公告',
       deleteAnnouncement: '删除公告',
       searchAnnouncements: '搜索公告...',
+      pin: '置顶',
+      unpin: '取消置顶',
+      pinSuccess: '公告已置顶',
+      unpinSuccess: '已取消公告置顶',
+      failedToPin: '更新公告置顶状态失败',
       status: '状态',
       allStatus: '全部状态',
       columns: {

@@ -64,6 +64,20 @@ func (_c *AnnouncementCreate) SetNillableNotifyMode(v *string) *AnnouncementCrea
 	return _c
 }
 
+// SetIsPinned sets the "is_pinned" field.
+func (_c *AnnouncementCreate) SetIsPinned(v bool) *AnnouncementCreate {
+	_c.mutation.SetIsPinned(v)
+	return _c
+}
+
+// SetNillableIsPinned sets the "is_pinned" field if the given value is not nil.
+func (_c *AnnouncementCreate) SetNillableIsPinned(v *bool) *AnnouncementCreate {
+	if v != nil {
+		_c.SetIsPinned(*v)
+	}
+	return _c
+}
+
 // SetTargeting sets the "targeting" field.
 func (_c *AnnouncementCreate) SetTargeting(v domain.AnnouncementTargeting) *AnnouncementCreate {
 	_c.mutation.SetTargeting(v)
@@ -220,6 +234,10 @@ func (_c *AnnouncementCreate) defaults() {
 		v := announcement.DefaultNotifyMode
 		_c.mutation.SetNotifyMode(v)
 	}
+	if _, ok := _c.mutation.IsPinned(); !ok {
+		v := announcement.DefaultIsPinned
+		_c.mutation.SetIsPinned(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := announcement.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -263,6 +281,9 @@ func (_c *AnnouncementCreate) check() error {
 		if err := announcement.NotifyModeValidator(v); err != nil {
 			return &ValidationError{Name: "notify_mode", err: fmt.Errorf(`ent: validator failed for field "Announcement.notify_mode": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.IsPinned(); !ok {
+		return &ValidationError{Name: "is_pinned", err: errors.New(`ent: missing required field "Announcement.is_pinned"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Announcement.created_at"`)}
@@ -312,6 +333,10 @@ func (_c *AnnouncementCreate) createSpec() (*Announcement, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.NotifyMode(); ok {
 		_spec.SetField(announcement.FieldNotifyMode, field.TypeString, value)
 		_node.NotifyMode = value
+	}
+	if value, ok := _c.mutation.IsPinned(); ok {
+		_spec.SetField(announcement.FieldIsPinned, field.TypeBool, value)
+		_node.IsPinned = value
 	}
 	if value, ok := _c.mutation.Targeting(); ok {
 		_spec.SetField(announcement.FieldTargeting, field.TypeJSON, value)
@@ -454,6 +479,18 @@ func (u *AnnouncementUpsert) SetNotifyMode(v string) *AnnouncementUpsert {
 // UpdateNotifyMode sets the "notify_mode" field to the value that was provided on create.
 func (u *AnnouncementUpsert) UpdateNotifyMode() *AnnouncementUpsert {
 	u.SetExcluded(announcement.FieldNotifyMode)
+	return u
+}
+
+// SetIsPinned sets the "is_pinned" field.
+func (u *AnnouncementUpsert) SetIsPinned(v bool) *AnnouncementUpsert {
+	u.Set(announcement.FieldIsPinned, v)
+	return u
+}
+
+// UpdateIsPinned sets the "is_pinned" field to the value that was provided on create.
+func (u *AnnouncementUpsert) UpdateIsPinned() *AnnouncementUpsert {
+	u.SetExcluded(announcement.FieldIsPinned)
 	return u
 }
 
@@ -669,6 +706,20 @@ func (u *AnnouncementUpsertOne) SetNotifyMode(v string) *AnnouncementUpsertOne {
 func (u *AnnouncementUpsertOne) UpdateNotifyMode() *AnnouncementUpsertOne {
 	return u.Update(func(s *AnnouncementUpsert) {
 		s.UpdateNotifyMode()
+	})
+}
+
+// SetIsPinned sets the "is_pinned" field.
+func (u *AnnouncementUpsertOne) SetIsPinned(v bool) *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetIsPinned(v)
+	})
+}
+
+// UpdateIsPinned sets the "is_pinned" field to the value that was provided on create.
+func (u *AnnouncementUpsertOne) UpdateIsPinned() *AnnouncementUpsertOne {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateIsPinned()
 	})
 }
 
@@ -1069,6 +1120,20 @@ func (u *AnnouncementUpsertBulk) SetNotifyMode(v string) *AnnouncementUpsertBulk
 func (u *AnnouncementUpsertBulk) UpdateNotifyMode() *AnnouncementUpsertBulk {
 	return u.Update(func(s *AnnouncementUpsert) {
 		s.UpdateNotifyMode()
+	})
+}
+
+// SetIsPinned sets the "is_pinned" field.
+func (u *AnnouncementUpsertBulk) SetIsPinned(v bool) *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.SetIsPinned(v)
+	})
+}
+
+// UpdateIsPinned sets the "is_pinned" field to the value that was provided on create.
+func (u *AnnouncementUpsertBulk) UpdateIsPinned() *AnnouncementUpsertBulk {
+	return u.Update(func(s *AnnouncementUpsert) {
+		s.UpdateIsPinned()
 	})
 }
 

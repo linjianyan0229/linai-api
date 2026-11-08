@@ -54,7 +54,7 @@ var definitions = []permissionDefinition{
 	{Permission{"subscriptions.restore", "恢复订阅", "订阅", "global"}, []string{"POST /subscriptions/:id/restore"}},
 	{Permission{"subscriptions.reset", "重置订阅额度", "订阅", "global"}, []string{"POST /subscriptions/:id/reset-quota"}},
 	{Permission{"announcements.read", "读取所有公告与阅读记录", "内容", "global"}, []string{"GET /announcements", "GET /announcements/:id", "GET /announcements/:id/read-status"}},
-	{Permission{"announcements.write", "创建、发布与修改公告", "内容", "global"}, []string{"POST /announcements", "PUT /announcements/:id"}},
+	{Permission{"announcements.write", "创建、发布与修改公告", "内容", "global"}, []string{"POST /announcements", "PUT /announcements/:id", "PUT /announcements/:id/pin"}},
 	{Permission{"announcements.delete", "删除公告", "内容", "global"}, []string{"DELETE /announcements/:id"}},
 	{Permission{"promo.read", "读取优惠码及使用记录", "财务", "global"}, []string{"GET /promo-codes", "GET /promo-codes/:id", "GET /promo-codes/:id/usages"}},
 	{Permission{"promo.write", "创建与修改优惠码权益", "财务", "global"}, []string{"POST /promo-codes", "PUT /promo-codes/:id"}},

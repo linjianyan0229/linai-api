@@ -10,7 +10,8 @@ import (
 )
 
 type announcementRepoStub struct {
-	item *Announcement
+	item   *Announcement
+	active []Announcement
 }
 
 func (s *announcementRepoStub) Create(_ context.Context, a *Announcement) error {
@@ -38,8 +39,59 @@ func (*announcementRepoStub) List(context.Context, pagination.PaginationParams, 
 	return nil, nil, nil
 }
 
-func (*announcementRepoStub) ListActive(context.Context, time.Time) ([]Announcement, error) {
+func (s *announcementRepoStub) SetPinned(ctx context.Context, id int64, pinned bool, actorID *int64) (*Announcement, error) {
+	a, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	a.IsPinned, a.UpdatedBy = pinned, actorID
+	return a, nil
+}
+
+func (s *announcementRepoStub) ListActive(context.Context, time.Time) ([]Announcement, error) {
+	return s.active, nil
+}
+
+type announcementPinUsers struct{ UserRepository }
+
+func (announcementPinUsers) GetByID(context.Context, int64) (*User, error) {
+	return &User{Balance: 5}, nil
+}
+
+type announcementPinSubscriptions struct{ UserSubscriptionRepository }
+
+func (announcementPinSubscriptions) ListActiveByUserID(context.Context, int64) ([]UserSubscription, error) {
 	return nil, nil
+}
+
+type announcementPinReads struct{ AnnouncementReadRepository }
+
+func (announcementPinReads) GetReadMapByUser(context.Context, int64, []int64) (map[int64]time.Time, error) {
+	return map[int64]time.Time{1: time.Unix(1, 0), 3: time.Unix(1, 0)}, nil
+}
+
+func TestAnnouncementPinnedPriorityRespectsAudienceAndReads(t *testing.T) {
+	future := time.Now().Add(time.Hour)
+	repo := &announcementRepoStub{active: []Announcement{
+		{ID: 4, Status: AnnouncementStatusActive},
+		{ID: 3, Status: AnnouncementStatusActive},
+		{ID: 1, Status: AnnouncementStatusActive, IsPinned: true},
+		{ID: 8, Status: AnnouncementStatusArchived, IsPinned: true},
+		{ID: 9, Status: AnnouncementStatusActive, IsPinned: true, StartsAt: &future},
+		{ID: 10, Status: AnnouncementStatusActive, IsPinned: true, Targeting: AnnouncementTargeting{AnyOf: []AnnouncementConditionGroup{
+			{AllOf: []AnnouncementCondition{{Type: AnnouncementConditionTypeBalance, Operator: AnnouncementOperatorGT, Value: 100}}},
+		}}},
+	}}
+	svc := NewAnnouncementService(repo, announcementPinReads{}, announcementPinUsers{}, announcementPinSubscriptions{})
+	items, err := svc.ListForUser(context.Background(), 1, false)
+	require.NoError(t, err)
+	require.Len(t, items, 3)
+	require.Equal(t, []int64{1, 4, 3}, []int64{items[0].Announcement.ID, items[1].Announcement.ID, items[2].Announcement.ID})
+	require.NotNil(t, items[0].ReadAt, "pinning never resets an existing read")
+	items, err = svc.ListForUser(context.Background(), 1, true)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, int64(4), items[0].Announcement.ID)
 }
 
 func TestAnnouncementServiceCreateRejectsEqualStartEndTimes(t *testing.T) {

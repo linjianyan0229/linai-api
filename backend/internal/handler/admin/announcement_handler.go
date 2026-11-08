@@ -203,6 +203,34 @@ func (h *AnnouncementHandler) Update(c *gin.Context) {
 	response.Success(c, dto.AnnouncementFromService(updated))
 }
 
+// SetPinned handles an explicit, idempotent pin/unpin action.
+// PUT /api/v1/admin/announcements/:id/pin
+func (h *AnnouncementHandler) SetPinned(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "Invalid announcement ID")
+		return
+	}
+	var req struct {
+		IsPinned *bool `json:"is_pinned" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+	item, err := h.announcementService.SetPinned(c.Request.Context(), id, *req.IsPinned, &subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.AnnouncementFromService(item))
+}
+
 // Delete handles deleting an announcement
 // DELETE /api/v1/admin/announcements/:id
 func (h *AnnouncementHandler) Delete(c *gin.Context) {

@@ -74,11 +74,17 @@ export async function getReadStatus(
   return data
 }
 
+export async function setPinned(id: number, isPinned: boolean): Promise<Announcement> {
+  const { data } = await apiClient.put<Announcement>(`/admin/announcements/${id}/pin`, { is_pinned: isPinned })
+  return data
+}
+
 const announcementsAPI = {
   list,
   getById,
   create,
   update,
+  setPinned,
   delete: deleteAnnouncement,
   getReadStatus
 }

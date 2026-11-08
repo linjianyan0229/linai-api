@@ -205,6 +205,7 @@ type Announcement struct {
 	Content    string
 	Status     string
 	NotifyMode string
+	IsPinned   bool
 	Targeting  AnnouncementTargeting
 	StartsAt   *time.Time
 	EndsAt     *time.Time

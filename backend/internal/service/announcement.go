@@ -71,6 +71,7 @@ type AnnouncementRepository interface {
 	Create(ctx context.Context, a *Announcement) error
 	GetByID(ctx context.Context, id int64) (*Announcement, error)
 	Update(ctx context.Context, a *Announcement) error
+	SetPinned(ctx context.Context, id int64, pinned bool, actorID *int64) (*Announcement, error)
 	Delete(ctx context.Context, id int64) error
 
 	List(ctx context.Context, params pagination.PaginationParams, filters AnnouncementListFilters) ([]Announcement, *pagination.PaginationResult, error)

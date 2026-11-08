@@ -364,6 +364,7 @@ export interface Announcement {
   content: string
   status: AnnouncementStatus
   notify_mode: AnnouncementNotifyMode
+  is_pinned?: boolean
   targeting: AnnouncementTargeting
   starts_at?: string
   ends_at?: string
@@ -378,6 +379,7 @@ export interface UserAnnouncement {
   title: string
   content: string
   notify_mode: AnnouncementNotifyMode
+  is_pinned?: boolean
   starts_at?: string
   ends_at?: string
   read_at?: string

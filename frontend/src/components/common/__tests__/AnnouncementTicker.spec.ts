@@ -32,6 +32,15 @@ afterEach(() => {
 })
 
 describe('announcement ticker', () => {
+  it('immediately returns to a newly pinned first notice even when IDs are unchanged', async () => {
+    const wrapper = mountTicker()
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(wrapper.get('.announcement-ticker-title').text()).toBe('Notice 2')
+    await wrapper.setProps({ announcements: [{ ...notice(1), is_pinned: true }, notice(2), notice(3)] })
+    expect(wrapper.get('.announcement-ticker-title').text()).toBe('Notice 1')
+    expect(wrapper.text()).toContain('announcements.pinned')
+  })
   it('rotates vertically through the notices and wraps to the first', async () => {
     const wrapper = mountTicker()
     await nextTick()

@@ -27,6 +27,8 @@ type Announcement struct {
 	Status string `json:"status,omitempty"`
 	// 通知模式: silent(仅铃铛), popup(弹窗提醒)
 	NotifyMode string `json:"notify_mode,omitempty"`
+	// 置顶公告优先展示
+	IsPinned bool `json:"is_pinned,omitempty"`
 	// 展示条件（JSON 规则）
 	Targeting domain.AnnouncementTargeting `json:"targeting,omitempty"`
 	// 开始展示时间（为空表示立即生效）
@@ -72,6 +74,8 @@ func (*Announcement) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case announcement.FieldTargeting:
 			values[i] = new([]byte)
+		case announcement.FieldIsPinned:
+			values[i] = new(sql.NullBool)
 		case announcement.FieldID, announcement.FieldCreatedBy, announcement.FieldUpdatedBy:
 			values[i] = new(sql.NullInt64)
 		case announcement.FieldTitle, announcement.FieldContent, announcement.FieldStatus, announcement.FieldNotifyMode:
@@ -122,6 +126,12 @@ func (_m *Announcement) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field notify_mode", values[i])
 			} else if value.Valid {
 				_m.NotifyMode = value.String
+			}
+		case announcement.FieldIsPinned:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_pinned", values[i])
+			} else if value.Valid {
+				_m.IsPinned = value.Bool
 			}
 		case announcement.FieldTargeting:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -223,6 +233,9 @@ func (_m *Announcement) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("notify_mode=")
 	builder.WriteString(_m.NotifyMode)
+	builder.WriteString(", ")
+	builder.WriteString("is_pinned=")
+	builder.WriteString(fmt.Sprintf("%v", _m.IsPinned))
 	builder.WriteString(", ")
 	builder.WriteString("targeting=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Targeting))

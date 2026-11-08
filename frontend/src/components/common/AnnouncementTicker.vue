@@ -15,6 +15,9 @@
       aria-haspopup="dialog"
       @click="emit('open', currentAnnouncement)"
     >
+      <span v-if="currentAnnouncement.is_pinned" class="shrink-0 rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600 dark:text-primary-400">
+        {{ t('announcements.pinned') }}
+      </span>
       <span
         v-if="!currentAnnouncement.read_at"
         class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500"
@@ -54,7 +57,7 @@ const reducedMotion = usePreferredReducedMotion()
 const currentAnnouncement = computed(() => props.announcements[currentIndex.value])
 
 // Keep the displayed item when read state or titles change; restart for a new list.
-watch(() => props.announcements.map(item => item.id).join(','), () => {
+watch(() => props.announcements.map(item => `${item.id}:${!!item.is_pinned}`).join(','), () => {
   currentIndex.value = 0
 })
 

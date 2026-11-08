@@ -382,6 +382,11 @@ export default {
       editAnnouncement: 'Edit Announcement',
       deleteAnnouncement: 'Delete Announcement',
       searchAnnouncements: 'Search announcements...',
+      pin: 'Pin',
+      unpin: 'Unpin',
+      pinSuccess: 'Announcement pinned',
+      unpinSuccess: 'Announcement unpinned',
+      failedToPin: 'Failed to update announcement priority',
       status: 'Status',
       allStatus: 'All Status',
       columns: {

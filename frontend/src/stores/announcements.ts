@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import { announcementsAPI } from '@/api'
 import type { UserAnnouncement } from '@/types'
 
-const THROTTLE_MS = 20 * 60 * 1000 // 20 minutes
+const THROTTLE_MS = 30 * 1000
 
 export const useAnnouncementStore = defineStore('announcements', () => {
   // State
@@ -16,6 +16,21 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   // Session-scoped dedup set — not reactive, used as plain lookup only
   let shownPopupIds = new Set<number>()
   let fetchGeneration = 0
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  function startPolling() {
+    if (pollTimer !== null) return
+    pollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !loading.value) void fetchAnnouncements(true)
+    }, THROTTLE_MS)
+  }
+
+  function stopPolling() {
+    if (pollTimer !== null) clearInterval(pollTimer)
+    pollTimer = null
+  }
+
+  onScopeDispose(stopPolling)
 
   // Getters
   const unreadCount = computed(() =>
@@ -37,7 +52,15 @@ export const useAnnouncementStore = defineStore('announcements', () => {
       loading.value = true
       const all = await announcementsAPI.list(false)
       if (generation !== fetchGeneration) return
-      announcements.value = all.slice(0, 20)
+      // Keep priority ahead of the display limit; preserve the server's unread order.
+      announcements.value = [...all]
+        .sort((a, b) => Number(!!b.is_pinned) - Number(!!a.is_pinned))
+        .slice(0, 20)
+      if (currentPopup.value) {
+        const id = currentPopup.value.id
+        const latest = all.find(a => a.id === id)
+        if (latest) currentPopup.value = latest
+      }
       enqueueNewPopups()
     } catch (err: any) {
       if (generation !== fetchGeneration) return
@@ -50,17 +73,9 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   }
 
   function enqueueNewPopups() {
-    const newPopups = announcements.value.filter(
+    popupQueue.value = announcements.value.filter(
       (a) => a.notify_mode === 'popup' && !a.read_at && !shownPopupIds.has(a.id)
     )
-    if (newPopups.length === 0) return
-
-    for (const p of newPopups) {
-      if (!popupQueue.value.some((q) => q.id === p.id)) {
-        popupQueue.value.push(p)
-      }
-    }
-
     if (!currentPopup.value) {
       showNextPopup()
     }
@@ -85,7 +100,10 @@ export const useAnnouncementStore = defineStore('announcements', () => {
 
     // Show next popup after a short delay
     if (popupQueue.value.length > 0) {
-      setTimeout(() => showNextPopup(), 300)
+      const generation = fetchGeneration
+      setTimeout(() => {
+        if (generation === fetchGeneration && !currentPopup.value) showNextPopup()
+      }, 300)
     }
   }
 
@@ -124,6 +142,7 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   }
 
   function reset() {
+    stopPolling()
     fetchGeneration++
     announcements.value = []
     lastFetchTime.value = 0
@@ -142,6 +161,8 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     unreadCount,
     // Actions
     fetchAnnouncements,
+    startPolling,
+    stopPolling,
     dismissPopup,
     markAsRead,
     markAllAsRead,

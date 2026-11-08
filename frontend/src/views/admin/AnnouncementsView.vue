@@ -51,6 +51,7 @@
           <template #cell-title="{ value, row }">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
+                <span v-if="row.is_pinned" class="badge badge-primary shrink-0">{{ t('announcements.pinned') }}</span>
                 <span class="truncate font-medium text-gray-900 dark:text-white">{{ value }}</span>
               </div>
               <div class="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
@@ -114,6 +115,20 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center space-x-1">
+              <button
+                type="button"
+                :data-testid="`pin-announcement-${row.id}`"
+                :disabled="pinningId !== null"
+                :aria-pressed="!!row.is_pinned"
+                :aria-label="t(row.is_pinned ? 'admin.announcements.unpin' : 'admin.announcements.pin')"
+                :title="t(row.is_pinned ? 'admin.announcements.unpin' : 'admin.announcements.pin')"
+                class="flex items-center gap-1 rounded-lg p-1.5 text-xs transition-colors hover:bg-primary-500/10 disabled:opacity-50"
+                :class="row.is_pinned ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500'"
+                @click="handlePin(row)"
+              >
+                <Icon name="pin" size="sm" />
+                {{ t(row.is_pinned ? 'admin.announcements.unpin' : 'admin.announcements.pin') }}
+              </button>
               <button
                 @click="openPreview(row)"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
@@ -574,6 +589,25 @@ async function handleSave() {
     appStore.showError(error.response?.data?.detail || (editingAnnouncement.value ? t('admin.announcements.failedToUpdate') : t('admin.announcements.failedToCreate')))
   } finally {
     saving.value = false
+  }
+}
+
+// ===== Pin priority =====
+const pinningId = ref<number | null>(null)
+
+async function handlePin(row: Announcement) {
+  if (pinningId.value !== null) return
+  pinningId.value = row.id
+  try {
+    const pinned = !row.is_pinned
+    await adminAPI.announcements.setPinned(row.id, pinned)
+    pagination.page = 1
+    await Promise.all([loadAnnouncements(), announcementStore.fetchAnnouncements(true)])
+    appStore.showSuccess(t(pinned ? 'admin.announcements.pinSuccess' : 'admin.announcements.unpinSuccess'))
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.announcements.failedToPin'))
+  } finally {
+    pinningId.value = null
   }
 }
 

@@ -62,6 +62,7 @@ export default {
     title: 'Announcements',
     description: 'View system announcements',
     expandAnnouncement: 'Expand announcement: {title}',
+    pinned: 'Pinned',
     unreadOnly: 'Show unread only',
     markRead: 'Mark as read',
     markAllRead: 'Mark all as read',

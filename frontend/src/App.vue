@@ -60,7 +60,7 @@ watch(
 // Watch for authentication state and manage subscription data + announcements
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
+    announcementStore.fetchAnnouncements(true)
   }
 }
 
@@ -87,6 +87,7 @@ watch(
   () => authStore.isAuthenticated,
   (isAuthenticated, oldValue) => {
     if (isAuthenticated) {
+      announcementStore.startPolling()
       // User logged in: preload subscriptions and start polling (skipped when the
       // subscription feature is switched off; see the flag watcher below)
       if (subscriptionFeatureEnabled.value) {
@@ -122,6 +123,7 @@ router.afterEach(() => {
 })
 
 onBeforeUnmount(() => {
+  announcementStore.stopPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 

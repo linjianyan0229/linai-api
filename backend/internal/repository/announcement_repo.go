@@ -28,6 +28,7 @@ func (r *announcementRepository) Create(ctx context.Context, a *service.Announce
 		SetContent(a.Content).
 		SetStatus(a.Status).
 		SetNotifyMode(a.NotifyMode).
+		SetIsPinned(a.IsPinned).
 		SetTargeting(a.Targeting)
 
 	if a.StartsAt != nil {
@@ -98,7 +99,21 @@ func (r *announcementRepository) Update(ctx context.Context, a *service.Announce
 	}
 
 	a.UpdatedAt = updated.UpdatedAt
+	a.IsPinned = updated.IsPinned
 	return nil
+}
+
+// Update only pin metadata, so a concurrent content edit cannot be overwritten.
+func (r *announcementRepository) SetPinned(ctx context.Context, id int64, pinned bool, actorID *int64) (*service.Announcement, error) {
+	client := clientFromContext(ctx, r.client)
+	updated, err := client.Announcement.UpdateOneID(id).
+		SetIsPinned(pinned).
+		SetNillableUpdatedBy(actorID).
+		Save(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrAnnouncementNotFound, nil)
+	}
+	return announcementEntityToService(updated), nil
 }
 
 func (r *announcementRepository) Delete(ctx context.Context, id int64) error {
@@ -134,6 +149,7 @@ func (r *announcementRepository) List(
 	itemsQuery := q.
 		Offset(params.Offset()).
 		Limit(params.Limit())
+	itemsQuery = itemsQuery.Order(dbent.Desc(announcement.FieldIsPinned))
 	for _, order := range announcementListOrders(params) {
 		itemsQuery = itemsQuery.Order(order)
 	}
@@ -204,7 +220,7 @@ func (r *announcementRepository) ListActive(ctx context.Context, now time.Time) 
 			announcement.Or(announcement.StartsAtIsNil(), announcement.StartsAtLTE(now)),
 			announcement.Or(announcement.EndsAtIsNil(), announcement.EndsAtGT(now)),
 		).
-		Order(dbent.Desc(announcement.FieldID)).
+		Order(dbent.Desc(announcement.FieldIsPinned), dbent.Desc(announcement.FieldID)).
 		Limit(200)
 
 	items, err := q.All(ctx)
@@ -221,6 +237,7 @@ func applyAnnouncementEntityToService(dst *service.Announcement, src *dbent.Anno
 	dst.ID = src.ID
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
+	dst.IsPinned = src.IsPinned
 }
 
 func announcementEntityToService(m *dbent.Announcement) *service.Announcement {
@@ -233,6 +250,7 @@ func announcementEntityToService(m *dbent.Announcement) *service.Announcement {
 		Content:    m.Content,
 		Status:     m.Status,
 		NotifyMode: m.NotifyMode,
+		IsPinned:   m.IsPinned,
 		Targeting:  m.Targeting,
 		StartsAt:   m.StartsAt,
 		EndsAt:     m.EndsAt,

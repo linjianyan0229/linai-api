@@ -9,6 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAnnouncementPinRequiresWritePermission(t *testing.T) {
+	path := "/api/v1/admin/announcements/:id/pin"
+	require.True(t, RouteAllowed(Policy{GlobalPermissions: []string{"announcements.write"}}, "PUT", path))
+	require.False(t, RouteAllowed(Policy{GlobalPermissions: []string{"announcements.read"}}, "PUT", path))
+	require.False(t, RouteAllowed(Policy{}, "PUT", path))
+}
+
 func TestScopedAdminPolicyDefaultDeny(t *testing.T) {
 	selectedGroupsOnly := Policy{Rules: []Rule{{GroupIDs: []int64{1}, AccountTypes: []string{"oauth"}}}}
 	for _, policy := range []Policy{{}, selectedGroupsOnly} {

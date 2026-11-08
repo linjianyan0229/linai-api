@@ -79,7 +79,7 @@
             <!-- Body -->
             <div class="max-h-[65vh] overflow-y-auto">
               <!-- Loading -->
-              <div v-if="loading" class="flex items-center justify-center py-16">
+              <div v-if="loading && announcements.length === 0" class="flex items-center justify-center py-16">
                 <div class="relative">
                   <div class="h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 dark:border-dark-600 dark:border-t-blue-400"></div>
                   <div class="absolute inset-0 h-12 w-12 animate-pulse rounded-full border-4 border-blue-400/30"></div>
@@ -126,6 +126,7 @@
                         {{ item.title }}
                       </h3>
                       <div class="mt-1 flex items-center gap-2">
+                        <span v-if="item.is_pinned" class="badge badge-primary">{{ t('announcements.pinned') }}</span>
                         <time class="text-xs text-gray-500 dark:text-gray-400">
                           {{ formatRelativeTime(item.created_at) }}
                         </time>
@@ -236,6 +237,7 @@
                   <!-- Title -->
                   <h2 class="mb-3 text-2xl font-bold leading-tight text-gray-900 dark:text-white">
                     {{ selectedAnnouncement.title }}
+                    <span v-if="selectedAnnouncement.is_pinned" class="badge badge-primary ml-2 align-middle">{{ t('announcements.pinned') }}</span>
                   </h2>
 
                   <!-- Meta Info -->
@@ -381,6 +383,13 @@ function closeDetail() {
   detailModalOpen.value = false
   selectedAnnouncement.value = null
 }
+
+// Refresh open details too when polling or an admin action replaces the list.
+watch(announcements, (items) => {
+  if (!selectedAnnouncement.value) return
+  const latest = items.find(item => item.id === selectedAnnouncement.value?.id)
+  if (latest) selectedAnnouncement.value = latest
+})
 
 async function markAsRead(id: number) {
   try {
