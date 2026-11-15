@@ -3,7 +3,8 @@
     v-if="currentAnnouncement"
     class="announcement-ticker flex min-w-0 items-center"
     @mouseenter="hovered = true"
-    @mouseleave="hovered = false"
+    @mouseleave="handleMouseLeave"
+    @wheel="handleWheel"
     @focusin="focused = true"
     @focusout="handleFocusOut"
   >
@@ -12,6 +13,7 @@
       class="flex h-9 min-w-0 flex-1 items-center gap-2 px-3 text-left"
       data-testid="announcement-ticker-open"
       :aria-label="t('announcements.expandAnnouncement', { title: currentAnnouncement.title })"
+      :title="announcements.length > 1 ? t('announcements.scrollHint') : undefined"
       aria-haspopup="dialog"
       @click="emit('open', currentAnnouncement)"
     >
@@ -23,7 +25,7 @@
         class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500"
         aria-hidden="true"
       ></span>
-      <span class="announcement-ticker-viewport relative block h-5 min-w-0 flex-1 overflow-hidden" aria-live="off">
+      <span class="announcement-ticker-viewport relative block h-5 min-w-0 flex-1 overflow-hidden" :style="{ '--announcement-roll-direction': direction }" aria-live="off">
         <Transition name="announcement-roll">
           <span :key="currentAnnouncement.id" class="announcement-ticker-title block truncate text-sm font-medium leading-5">
             {{ currentAnnouncement.title }}
@@ -55,14 +57,59 @@ const focused = ref(false)
 const visibility = useDocumentVisibility()
 const reducedMotion = usePreferredReducedMotion()
 const currentAnnouncement = computed(() => props.announcements[currentIndex.value])
+const direction = ref(1)
+let wheelDelta = 0
+let wheelLockedUntil = 0
+let lastWheelAt = 0
+
+function resetWheel() {
+  wheelDelta = 0
+  wheelLockedUntil = 0
+  lastWheelAt = 0
+}
+
+function move(step: number) {
+  direction.value = step
+  currentIndex.value = (currentIndex.value + step + props.announcements.length) % props.announcements.length
+}
+
+function handleWheel(event: WheelEvent) {
+  // Leave zoom gestures, horizontal scrolling and single notices to the browser.
+  if (props.paused || props.announcements.length < 2 || event.ctrlKey || event.metaKey
+    || !Number.isFinite(event.deltaY) || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+
+  event.preventDefault()
+  const now = Date.now()
+  if (now < wheelLockedUntil) return
+
+  // Normalize mouse line/page deltas and accumulate small trackpad movements.
+  const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? 40 : 1
+  const delta = event.deltaY * scale
+  if (now - lastWheelAt > 200 || Math.sign(delta) !== Math.sign(wheelDelta)) wheelDelta = 0
+  lastWheelAt = now
+  wheelDelta += delta
+  if (Math.abs(wheelDelta) < 40) return
+
+  move(Math.sign(wheelDelta))
+  wheelDelta = 0
+  wheelLockedUntil = now + 450
+}
+
+function handleMouseLeave() {
+  hovered.value = false
+  resetWheel()
+}
 
 // Keep the displayed item when read state or titles change; restart for a new list.
 watch(() => props.announcements.map(item => `${item.id}:${!!item.is_pinned}`).join(','), () => {
   currentIndex.value = 0
+  direction.value = 1
+  resetWheel()
 })
 
 const { pause, resume } = useIntervalFn(() => {
-  currentIndex.value = (currentIndex.value + 1) % props.announcements.length
+  move(1)
 }, 5000, { immediate: false })
 
 watch(
@@ -99,12 +146,12 @@ function handleFocusOut(event: FocusEvent) {
 
 .announcement-roll-enter-from {
   opacity: 0;
-  transform: translateY(100%);
+  transform: translateY(calc(100% * var(--announcement-roll-direction, 1)));
 }
 
 .announcement-roll-leave-to {
   opacity: 0;
-  transform: translateY(-100%);
+  transform: translateY(calc(-100% * var(--announcement-roll-direction, 1)));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -19,6 +19,24 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); document.body.style.overflow = '' })
 
 describe('announcement read confirmation', () => {
+  it('opens the notice selected by wheel and marks only that notice as read', async () => {
+    const store = useAnnouncementStore()
+    store.announcements.push({ id: 2, title: 'Older notice', content: 'Older details', notify_mode: 'silent', created_at: '2026-09-29', updated_at: '2026-09-29' })
+    markRead.mockResolvedValue(undefined)
+    const wrapper = mount(AnnouncementBell, { global: { stubs: { Teleport: true, Transition: true, Icon: true } } })
+    await wrapper.get('.announcement-ticker').trigger('mouseenter')
+    wrapper.get('.announcement-ticker').element.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(markRead).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="announcement-ticker-open"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('Older notice')
+    expect(wrapper.get('.markdown-body').text()).toBe('Older details')
+    expect(markRead).toHaveBeenCalledWith(2)
+    expect(store.announcements[0].read_at).toBeUndefined()
+    expect(store.announcements[1].read_at).toBeTruthy()
+  })
+
   it('expands the rotating notice directly into its full detail', async () => {
     markRead.mockResolvedValue(undefined)
     const wrapper = mount(AnnouncementBell, { global: { stubs: { Teleport: true, Transition: true, Icon: true } } })
