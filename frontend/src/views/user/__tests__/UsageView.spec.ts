@@ -134,6 +134,8 @@ const usageLog = {
   cache_read_tokens: 278272,
   cache_creation_5m_tokens: 0,
   cache_creation_1h_tokens: 0,
+  cache_creation_30m_tokens: 1,
+  cache_creation_12h_tokens: 3,
   image_count: 0,
   image_size: null,
   first_token_ms: 12,
@@ -399,8 +401,8 @@ describe('user UsageView', () => {
     expect(showSuccess).toHaveBeenCalled()
     expect(csvContent.startsWith('\uFEFF')).toBe(true)
     expect(csvContent.slice(1)).toBe([
-      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,IP Address,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
-      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,-,,203.0.113.10,Sync,Token,4057,101,278272,4,1,0.09288300,0.09288300,12,345',
+      'Time,API Key Name,Model,Reasoning Effort,Inbound Endpoint,IP Address,Type,Billing Mode,Input Tokens,Output Tokens,Cache Read Tokens,Cache Creation Tokens,Cache Creation Tokens (5m),Cache Creation Tokens (1h),Cache Creation Tokens (30m),Cache Creation Tokens (12h),Rate Multiplier,Billed Cost,Original Cost,First Token (ms),Duration (ms)',
+      '2026-03-08T00:00:00Z,demo-key,gpt-5.4,-,,203.0.113.10,Sync,Token,4057,101,278272,4,0,0,1,3,1,0.09288300,0.09288300,12,345',
     ].join('\n'))
     expect(csvContent).toContain('IP Address')
     expect(csvContent).toContain('203.0.113.10')
@@ -526,6 +528,8 @@ describe('user UsageView', () => {
           input_tokens: 0,
           output_tokens: 0,
           cache_creation_tokens: 0,
+          cache_creation_30m_tokens: 0,
+          cache_creation_12h_tokens: 0,
           cache_read_tokens: 0,
           image_count: 1,
           model: 'gpt-image-2',

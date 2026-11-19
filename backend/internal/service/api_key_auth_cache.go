@@ -9,6 +9,7 @@ type APIKeyAuthSnapshot struct {
 	UserID      int64                    `json:"user_id"`
 	GroupID     *int64                   `json:"group_id,omitempty"`
 	Name        string                   `json:"name"`
+	Concurrency int                      `json:"concurrency"`
 	Status      string                   `json:"status"`
 	IPWhitelist []string                 `json:"ip_whitelist,omitempty"`
 	IPBlacklist []string                 `json:"ip_blacklist,omitempty"`
@@ -105,6 +106,7 @@ type APIKeyAuthGroupSnapshot struct {
 	AllowMessagesDispatch       bool                              `json:"allow_messages_dispatch"`
 	AllowLive                   bool                              `json:"allow_live"`
 	ForceOpenAIFast             bool                              `json:"force_openai_fast"`
+	ForceOpenAIUltrafast        bool                              `json:"force_openai_ultrafast"`
 	FreeOpenAIFast              bool                              `json:"free_openai_fast"`
 	DefaultMappedModel          string                            `json:"default_mapped_model,omitempty"`
 	MessagesDispatchModelConfig OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`

@@ -37,7 +37,9 @@ func (s *BillingService) CalculateTokenCostForRequest(req TokenCostRequest) (*Co
 	if req.ReasoningEffort != "" {
 		return s.CalculateCostUnified(s.tokenCostInput(req, resolved))
 	}
-	return s.CalculateCost(req.Model, req.Tokens, req.RateMultiplier)
+	// Keep the captured pricing instant and final tier on the catalog fallback,
+	// too: delayed GPT-6.2 Ultrafast settlement can cross a promotion boundary.
+	return s.CalculateCostUnified(s.tokenCostInput(req, resolved))
 }
 
 func (s *BillingService) tokenCostInput(req TokenCostRequest, resolved *ResolvedPricing) CostInput {

@@ -27,6 +27,7 @@ func ToolCatalog() []ToolSpec {
 		"group_id": catalogID("Group ID"),
 	})
 	keyCreate := catalogObject(map[string]any{
+		"concurrency":     catalogInteger("Independent concurrent request limit; 0 adds no limit to your user total", 0, 100000),
 		"name":            catalogNonemptyText("Name for the new API key", 100),
 		"group_id":        catalogID("Accessible group ID; use user_list_groups to find one"),
 		"quota":           catalogNumber("Lifetime spending limit in USD; 0 means unlimited", 0),
@@ -38,6 +39,7 @@ func ToolCatalog() []ToolSpec {
 		"rate_limit_7d":   catalogNumber("Rolling 7-day spending limit in USD; 0 means unlimited", 0),
 	}, "name")
 	keyUpdate := catalogObject(map[string]any{
+		"concurrency":   catalogInteger("Independent concurrent request limit; omitted leaves unchanged and 0 clears it", 0, 100000),
 		"name":          catalogNonemptyText("New API key name", 100),
 		"group_id":      catalogID("Accessible destination group ID"),
 		"status":        catalogEnum("Enable or disable this key", "active", "inactive"),

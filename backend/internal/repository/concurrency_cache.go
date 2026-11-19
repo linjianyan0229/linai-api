@@ -135,25 +135,32 @@ var (
 		local userRegular = KEYS[3]
 		local userLive = KEYS[4]
 		local apiLive = KEYS[5]
+		local apiRegular = KEYS[6]
 		local accountMax = tonumber(ARGV[1])
 		local userMax = tonumber(ARGV[2])
 		local ttl = tonumber(ARGV[3])
 		local leaseID = ARGV[4]
 		local replacing = tonumber(ARGV[5])
+		local apiMax = tonumber(ARGV[6])
+		local regularTTL = tonumber(ARGV[7])
 		local now = tonumber(redis.call('TIME')[1])
 		local liveExpireBefore = now - ttl
 		redis.call('ZREMRANGEBYSCORE', accountLive, '-inf', liveExpireBefore)
 		redis.call('ZREMRANGEBYSCORE', userLive, '-inf', liveExpireBefore)
 		redis.call('ZREMRANGEBYSCORE', apiLive, '-inf', liveExpireBefore)
+		redis.call('ZREMRANGEBYSCORE', apiRegular, '-inf', now - regularTTL)
 		if redis.call('ZSCORE', accountLive, leaseID) ~= false then
 			return 1
 		end
 		local accountCount = redis.call('ZCARD', accountRegular) + redis.call('ZCARD', accountLive)
 		local userCount = redis.call('ZCARD', userRegular) + redis.call('ZCARD', userLive)
+		local apiCount = redis.call('ZCARD', apiRegular) + redis.call('ZCARD', apiLive)
 		local allowance = 0
 		if replacing == 1 then allowance = 1 end
 		if accountMax > 0 and accountCount >= accountMax + allowance then return 0 end
 		if userMax > 0 and userCount >= userMax + allowance then return 0 end
+		-- The caller holds temporary user/account slots, but no temporary key slot.
+		if apiMax > 0 and apiCount >= apiMax then return 0 end
 		redis.call('ZADD', accountLive, now, leaseID)
 		redis.call('ZADD', userLive, now, leaseID)
 		redis.call('ZADD', apiLive, now, leaseID)
@@ -745,6 +752,13 @@ func (c *concurrencyCache) TrackAPIKeySlot(ctx context.Context, apiKeyID int64, 
 	return err
 }
 
+func (c *concurrencyCache) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	acquired, _, err := runScriptInt64Pair(ctx, c.rdb, acquireScript,
+		[]string{apiKeySlotKey(apiKeyID), liveAPIKeySlotKey(apiKeyID)},
+		maxConcurrency, c.slotTTLSeconds, requestID)
+	return acquired == 1, err
+}
+
 func (c *concurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
 	key := apiKeySlotKey(apiKeyID)
 	return c.rdb.ZRem(ctx, key, requestID).Err()
@@ -802,6 +816,20 @@ func (c *concurrencyCache) AcquireLiveLease(
 	leaseID string,
 	replacingRegularSlots bool,
 ) (bool, error) {
+	return c.AcquireLiveLeaseWithAPIKeyLimit(ctx, accountID, accountMax, userID, userMax, apiKeyID, 0, leaseID, replacingRegularSlots)
+}
+
+func (c *concurrencyCache) AcquireLiveLeaseWithAPIKeyLimit(
+	ctx context.Context,
+	accountID int64,
+	accountMax int,
+	userID int64,
+	userMax int,
+	apiKeyID int64,
+	apiKeyMax int,
+	leaseID string,
+	replacingRegularSlots bool,
+) (bool, error) {
 	if c == nil || c.rdb == nil || accountID <= 0 || userID <= 0 || apiKeyID <= 0 || leaseID == "" {
 		return false, nil
 	}
@@ -815,7 +843,8 @@ func (c *concurrencyCache) AcquireLiveLease(
 		userSlotKey(userID),
 		liveUserSlotKey(userID),
 		liveAPIKeySlotKey(apiKeyID),
-	}, accountMax, userMax, liveLeaseTTLSeconds, leaseID, replacing).Int()
+		apiKeySlotKey(apiKeyID),
+	}, accountMax, userMax, liveLeaseTTLSeconds, leaseID, replacing, apiKeyMax, c.slotTTLSeconds).Int()
 	return result == 1, err
 }
 
@@ -1141,8 +1170,8 @@ func (c *concurrencyCache) reconcileExpiredIndexCandidates(ctx context.Context, 
 // CleanupStaleProcessSlots 启动时清理非当前进程前缀的槽位。
 // 清理范围来自活跃索引（含 score 已过期的成员——它们往往正是崩溃进程留下的残留），
 // 避免在 Redis 上 SCAN 全部 concurrency:* 键；另有一次性迁移清扫兜底索引机制上线前的遗留等待计数。
-// API Key 槽位（concurrency:api_key:*）是 stats-only 数据：每次 Track/读取都会按分数
-// 裁剪过期成员，key 自带 TTL，可在一个 slot TTL 内自愈，因此不参与启动清理。
+// API Key 槽位同时用于统计与限制：每次获取/读取都会裁剪过期成员，key 自带 TTL，
+// 崩溃后的残留最多保留一个 slot TTL；不按进程前缀删除，以保留其他实例的有效占槽。
 func (c *concurrencyCache) CleanupStaleProcessSlots(ctx context.Context, activeRequestPrefix string) error {
 	if activeRequestPrefix == "" {
 		return nil

@@ -112,6 +112,9 @@ func provideCleanup(
 	announcementEmail *service.AnnouncementEmailService,
 	billingCache *service.BillingCacheService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
+	usageBillingLanes *service.UsageBillingLaneCombiner,
+	balanceNotify *service.BalanceNotifyService,
+	digestSessions *service.DigestSessionStore,
 	subscriptionService *service.SubscriptionService,
 	oauth *service.OAuthService,
 	openaiOAuth *service.OpenAIOAuthService,
@@ -144,6 +147,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"DigestSessionStore", func() error {
+				if digestSessions != nil {
+					digestSessions.Close()
+				}
+				return nil
+			}},
 			{"AnnouncementEmailService", func() error {
 				if announcementEmail != nil {
 					announcementEmail.Stop()
@@ -314,10 +323,6 @@ func provideCleanup(
 				emailQueue.Stop()
 				return nil
 			}},
-			{"BillingCacheService", func() error {
-				billingCache.Stop()
-				return nil
-			}},
 			{"UsageRecordWorkerPool", func() error {
 				if usageRecordWorkerPool != nil {
 					usageRecordWorkerPool.Stop()
@@ -382,12 +387,6 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"UserPlatformQuotaUsageFlusher", func() error {
-				if quotaFlusher != nil {
-					quotaFlusher.Stop()
-				}
-				return nil
-			}},
 			{"UpstreamBillingProbeService", func() error {
 				if upstreamBillingProbe != nil {
 					upstreamBillingProbe.Stop()
@@ -403,6 +402,35 @@ func provideCleanup(
 			{"OpenCodeGoUsageService", func() error {
 				if opencodeGoUsage != nil {
 					opencodeGoUsage.Stop()
+				}
+				return nil
+			}},
+		}
+
+		// Drain settlement after the usage workers have finished submitting, and
+		// stop notifications before their Redis/SQL dependencies are closed.
+		persistenceSteps := []cleanupStep{
+			{"UsageBillingLaneCombiner", func() error {
+				if usageBillingLanes != nil {
+					usageBillingLanes.Stop()
+				}
+				return nil
+			}},
+			{"BillingCacheService", func() error {
+				if billingCache != nil {
+					billingCache.Stop()
+				}
+				return nil
+			}},
+			{"UserPlatformQuotaUsageFlusher", func() error {
+				if quotaFlusher != nil {
+					quotaFlusher.Stop()
+				}
+				return nil
+			}},
+			{"BalanceNotifyService", func() error {
+				if balanceNotify != nil {
+					balanceNotify.Stop()
 				}
 				return nil
 			}},
@@ -452,6 +480,7 @@ func provideCleanup(
 		}
 
 		runParallel(parallelSteps)
+		runSequential(persistenceSteps)
 		runSequential(infraSteps)
 
 		// Check if context timed out

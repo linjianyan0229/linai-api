@@ -32,6 +32,7 @@ func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 
 // CreateAPIKeyRequest represents the create API key request payload
 type CreateAPIKeyRequest struct {
+	Concurrency   int      `json:"concurrency"`
 	Name          string   `json:"name" binding:"required"`
 	GroupID       *int64   `json:"group_id"`        // nullable
 	CustomKey     *string  `json:"custom_key"`      // 可选的自定义key
@@ -48,6 +49,7 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest represents the update API key request payload
 type UpdateAPIKeyRequest struct {
+	Concurrency *int      `json:"concurrency"`
 	Name        string    `json:"name"`
 	GroupID     *int64    `json:"group_id"`
 	Status      string    `json:"status" binding:"omitempty,oneof=active inactive"`
@@ -67,6 +69,9 @@ type UpdateAPIKeyRequest struct {
 func validAPIKeyLimit(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 }
 
 func validateAPIKeyCreateRequest(req CreateAPIKeyRequest) error {
+	if req.Concurrency < 0 || req.Concurrency > service.MaxAPIKeyConcurrency {
+		return errors.New("concurrency must be between 0 and 100000")
+	}
 	if req.Quota != nil && !validAPIKeyLimit(*req.Quota) {
 		return errors.New("invalid quota")
 	}
@@ -86,6 +91,9 @@ func validateAPIKeyCreateRequest(req CreateAPIKeyRequest) error {
 }
 
 func validateAPIKeyUpdateRequest(req UpdateAPIKeyRequest) error {
+	if req.Concurrency != nil && (*req.Concurrency < 0 || *req.Concurrency > service.MaxAPIKeyConcurrency) {
+		return errors.New("concurrency must be between 0 and 100000")
+	}
 	if req.Quota != nil && !validAPIKeyLimit(*req.Quota) {
 		return errors.New("invalid quota")
 	}
@@ -192,11 +200,12 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 	if err := validateAPIKeyCreateRequest(req); err != nil {
-		response.BadRequest(c, "Invalid request: numeric limits must be finite and non-negative, and expires_in_days must be greater than zero")
+		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
 	svcReq := service.CreateAPIKeyRequest{
+		Concurrency:   req.Concurrency,
 		Name:          req.Name,
 		GroupID:       req.GroupID,
 		CustomKey:     req.CustomKey,
@@ -247,11 +256,12 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 	if err := validateAPIKeyUpdateRequest(req); err != nil {
-		response.BadRequest(c, "Invalid request: numeric limits must be finite and non-negative")
+		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
 
 	svcReq := service.UpdateAPIKeyRequest{
+		Concurrency:         req.Concurrency,
 		IPWhitelist:         req.IPWhitelist,
 		IPBlacklist:         req.IPBlacklist,
 		Quota:               req.Quota,

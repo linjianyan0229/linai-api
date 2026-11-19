@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -45,6 +45,18 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	}
 
 	reqLog := requestLogger(c, "handler.openai_gateway.grok_realtime")
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
+		return
+	}
+	var streamStarted bool
+	userRelease, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
+	if !acquired {
+		return
+	}
+	defer userRelease()
+
 	model := c.Query("model")
 	if strings.TrimSpace(model) == "" {
 		model = "grok-voice-latest"
@@ -203,12 +215,25 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 
 	body, err := readGrokVoiceGatewayBody(c)
 	if err != nil {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		if errors.Is(err, errGrokVoiceBodyRequired) {
+			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return
+		}
+		bodyLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
+		if handleRequestBodyReadError(c, bodyLog, err) {
+			return
+		}
+		status, message := requestBodyReadFailure(bodyLog, c.Request, err)
+		h.errorResponse(c, status, "invalid_request_error", message)
 		return
 	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
+		return
+	}
+	reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
 	if endpoint == "tts" {
-		subject, _ := middleware2.GetAuthSubjectFromContext(c)
-		reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
 		// TTS bodies use {"input":"..."} (and variants). Normalize to chat messages so
 		// content moderation extractors see the spoken text.
 		auditBody := body
@@ -224,6 +249,13 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 			return
 		}
 	}
+	var streamStarted bool
+	userRelease, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
+	if !acquired {
+		return
+	}
+	defer userRelease()
+
 	// 余额模式在途预留（与计费同口径估算；计费任务扣减余额缓存后才释放）。
 	inflightDone, inflightErr := reserveInflightBalance(c, h.billingCacheService, h.gatewayService, apiKey, subscription, grokVoiceInflightEstimate(endpoint, body))
 	if inflightErr != nil {
@@ -243,7 +275,6 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 
 	failed := map[int64]struct{}{}
 	var last *service.UpstreamFailoverError
-	reqLog := requestLogger(c, "handler.openai_gateway.grok_voice", zap.String("endpoint", endpoint))
 	selectionModel := "grok-4.5"
 
 	for attempts := 0; attempts < 4; attempts++ {
@@ -344,6 +375,7 @@ func (h *OpenAIGatewayHandler) recordGrokVoiceUsage(
 		model = endpoint
 	}
 
+	channelUsageFields := clientRequestedUsageFields(c, service.ChannelMappingResult{}, model, result.UpstreamModel)
 	h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 		if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 			Result:             result,
@@ -359,7 +391,7 @@ func (h *OpenAIGatewayHandler) recordGrokVoiceUsage(
 			APIKeyService:      h.apiKeyService,
 			QuotaPlatform:      quotaPlatform,
 			SessionID:          sessionID,
-			ChannelUsageFields: clientRequestedUsageFields(c, service.ChannelMappingResult{}, model, result.UpstreamModel),
+			ChannelUsageFields: channelUsageFields,
 		}); err != nil {
 			logger.L().With(
 				zap.String("component", "handler.openai_gateway.grok_voice"),
@@ -373,17 +405,21 @@ func (h *OpenAIGatewayHandler) recordGrokVoiceUsage(
 	})
 }
 
+var errGrokVoiceBodyRequired = errors.New("request body is required")
+
+// readGrokVoiceGatewayBody returns errGrokVoiceBodyRequired for a missing body;
+// other errors use the shared request-body read-failure classification.
 func readGrokVoiceGatewayBody(c *gin.Context) ([]byte, error) {
 	if c == nil || c.Request == nil {
-		return nil, errors.New("request body is required")
+		return nil, errGrokVoiceBodyRequired
 	}
 	if c.Request.Body == nil {
 		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodDelete {
 			return nil, nil
 		}
-		return nil, errors.New("request body is required")
+		return nil, errGrokVoiceBodyRequired
 	}
-	return io.ReadAll(c.Request.Body)
+	return pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
 }
 
 // extractGrokTTSInputText pulls the primary spoken text from a TTS JSON body.

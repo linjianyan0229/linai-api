@@ -47,6 +47,7 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetUserID(key.UserID).
 		SetKey(key.Key).
 		SetName(key.Name).
+		SetConcurrency(key.Concurrency).
 		SetStatus(key.Status).
 		SetNillableGroupID(key.GroupID).
 		SetNillableLastUsedAt(key.LastUsedAt).
@@ -135,6 +136,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 			apikey.FieldUserID,
 			apikey.FieldGroupID,
 			apikey.FieldName,
+			apikey.FieldConcurrency,
 			apikey.FieldStatus,
 			apikey.FieldIPWhitelist,
 			apikey.FieldIPBlacklist,
@@ -212,6 +214,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldAllowMessagesDispatch,
 				group.FieldAllowLive,
 				group.FieldForceOpenaiFast,
+				group.FieldForceOpenaiUltrafast,
 				group.FieldFreeOpenaiFast,
 				group.FieldDefaultMappedModel,
 				group.FieldMessagesDispatchModelConfig,
@@ -265,6 +268,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 		SetUpdatedAt(now)
 	if fields.Name {
 		builder.SetName(key.Name)
+	}
+	if fields.Concurrency {
+		builder.SetConcurrency(key.Concurrency)
 	}
 	if fields.Status {
 		builder.SetStatus(key.Status)
@@ -893,6 +899,7 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		UserID:        m.UserID,
 		Key:           m.Key,
 		Name:          m.Name,
+		Concurrency:   m.Concurrency,
 		Status:        m.Status,
 		IPWhitelist:   m.IPWhitelist,
 		IPBlacklist:   m.IPBlacklist,
@@ -1030,6 +1037,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		AllowMessagesDispatch:           g.AllowMessagesDispatch,
 		AllowLive:                       g.AllowLive,
 		ForceOpenAIFast:                 g.ForceOpenaiFast,
+		ForceOpenAIUltrafast:            g.ForceOpenaiUltrafast,
 		FreeOpenAIFast:                  g.FreeOpenaiFast,
 		RequireOAuthOnly:                g.RequireOauthOnly,
 		RequirePrivacySet:               g.RequirePrivacySet,

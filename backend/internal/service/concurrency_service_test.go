@@ -60,6 +60,20 @@ type ingressLeaseCacheForTest struct {
 	releaseIngressCalls  int
 }
 
+type keyLimiterCacheForTest struct {
+	stubConcurrencyCacheForTest
+	keyAcquired  bool
+	keyErr       error
+	keyID        int64
+	keyLimit     int
+	keyRequestID string
+}
+
+func (c *keyLimiterCacheForTest) AcquireAPIKeySlot(_ context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	c.keyID, c.keyLimit, c.keyRequestID = apiKeyID, maxConcurrency, requestID
+	return c.keyAcquired, c.keyErr
+}
+
 func (c *ingressLeaseCacheForTest) AcquireOpenAIWSIngressLease(ctx context.Context, apiKeyID int64, maxConnections int, leaseID string) (bool, error) {
 	c.acquireIngressCalls++
 	if c.acquireIngressFn != nil {
@@ -283,6 +297,57 @@ func TestTrackAPIKeySlot_ReleaseDecrements(t *testing.T) {
 
 	require.Equal(t, []int64{88}, cache.releasedAPIKeyIDs)
 	require.Equal(t, cache.trackedAPIKeyRequestIDs, cache.releasedAPIKeyRequestIDs)
+}
+
+func TestAcquireAPIKeySlot(t *testing.T) {
+	t.Run("reserves configured limit and releases once after cancellation", func(t *testing.T) {
+		cache := &keyLimiterCacheForTest{keyAcquired: true}
+		svc := NewConcurrencyService(cache)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		result, err := svc.AcquireAPIKeySlot(ctx, 88, 2)
+		require.NoError(t, err)
+		require.True(t, result.Acquired)
+		require.Equal(t, int64(88), cache.keyID)
+		require.Equal(t, 2, cache.keyLimit)
+		require.NotEmpty(t, cache.keyRequestID)
+		require.Empty(t, cache.trackedAPIKeyIDs)
+		cancel()
+		result.ReleaseFunc()
+		result.ReleaseFunc()
+		require.Equal(t, []int64{88}, cache.releasedAPIKeyIDs)
+		require.Equal(t, []string{cache.keyRequestID}, cache.releasedAPIKeyRequestIDs)
+	})
+	t.Run("full key has no release", func(t *testing.T) {
+		svc := NewConcurrencyService(&keyLimiterCacheForTest{})
+		result, err := svc.AcquireAPIKeySlot(context.Background(), 88, 1)
+		require.NoError(t, err)
+		require.False(t, result.Acquired)
+		require.Nil(t, result.ReleaseFunc)
+	})
+	t.Run("configured limit fails closed on redis error", func(t *testing.T) {
+		redisErr := errors.New("redis unavailable")
+		svc := NewConcurrencyService(&keyLimiterCacheForTest{keyErr: redisErr})
+		result, err := svc.AcquireAPIKeySlot(context.Background(), 88, 1)
+		require.ErrorIs(t, err, redisErr)
+		require.Nil(t, result)
+	})
+	t.Run("configured limit requires limiter support", func(t *testing.T) {
+		for _, svc := range []*ConcurrencyService{nil, NewConcurrencyService(nil), NewConcurrencyService(&stubConcurrencyCacheForTest{})} {
+			result, err := svc.AcquireAPIKeySlot(context.Background(), 88, 1)
+			require.Error(t, err)
+			require.Nil(t, result)
+		}
+	})
+	t.Run("zero preserves statistics without an extra limit", func(t *testing.T) {
+		cache := &stubConcurrencyCacheForTest{}
+		result, err := NewConcurrencyService(cache).AcquireAPIKeySlot(context.Background(), 88, 0)
+		require.NoError(t, err)
+		require.True(t, result.Acquired)
+		require.Equal(t, []int64{88}, cache.trackedAPIKeyIDs)
+		result.ReleaseFunc()
+		require.Equal(t, []int64{88}, cache.releasedAPIKeyIDs)
+	})
 }
 
 func TestTrackAPIKeySlot_FailOpen(t *testing.T) {

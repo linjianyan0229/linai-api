@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -102,6 +103,47 @@ func (s *OpenAIGatewayService) liveMaxSessionDuration() time.Duration {
 	return defaultLiveMaxSessionDuration
 }
 
+// startLiveLeaseKeeper covers work performed before a controller's refresh loop
+// is running. stop waits for any in-flight refresh before the caller releases or
+// hands off the lease, and preserves a renewal failure as the work context cause.
+func startLiveLeaseKeeper(ctx context.Context, interval time.Duration, renew func(context.Context) error) (context.Context, func() error) {
+	leaseCtx, cancelLease := context.WithCancelCause(ctx)
+	renewCtx, cancelRenew := context.WithCancel(leaseCtx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-renewCtx.Done():
+				return
+			case <-ticker.C:
+				if renewCtx.Err() != nil {
+					return
+				}
+				if err := renew(renewCtx); err != nil {
+					if renewCtx.Err() == nil {
+						cancelLease(err)
+					}
+					return
+				}
+			}
+		}
+	}()
+	var once sync.Once
+	var stopErr error
+	return leaseCtx, func() error {
+		once.Do(func() {
+			cancelRenew()
+			<-done
+			stopErr = context.Cause(leaseCtx)
+			cancelLease(context.Canceled)
+		})
+		return stopErr
+	}
+}
+
 func ValidateLiveCallRequest(request *LiveCallRequest) error {
 	if request == nil || strings.TrimSpace(request.SDP) == "" {
 		return errors.New("sdp is required")
@@ -137,6 +179,10 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 	liveCache, err := s.liveConcurrencyCache()
 	if err != nil {
 		return nil, err
+	}
+	keyLimitedCache, hasKeyLimiter := liveCache.(LiveAPIKeyConcurrencyCache)
+	if identity.APIKeyConcurrency > 0 && !hasKeyLimiter {
+		return nil, ErrLiveUnavailable
 	}
 	attestation, attestationCiphertext, err := s.prepareLiveAttestation(ctx)
 	if err != nil {
@@ -177,16 +223,19 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 
 		account := selection.Account
 		leaseID := generateRequestID()
-		acquired, acquireErr := liveCache.AcquireLiveLease(
-			ctx,
-			account.ID,
-			account.Concurrency,
-			identity.UserID,
-			userMaxConcurrency,
-			identity.APIKeyID,
-			leaseID,
-			true,
-		)
+		var acquired bool
+		var acquireErr error
+		if identity.APIKeyConcurrency > 0 {
+			acquired, acquireErr = keyLimitedCache.AcquireLiveLeaseWithAPIKeyLimit(
+				ctx, account.ID, account.Concurrency, identity.UserID, userMaxConcurrency,
+				identity.APIKeyID, identity.APIKeyConcurrency, leaseID, true,
+			)
+		} else {
+			acquired, acquireErr = liveCache.AcquireLiveLease(
+				ctx, account.ID, account.Concurrency, identity.UserID, userMaxConcurrency,
+				identity.APIKeyID, leaseID, true,
+			)
+		}
 		if acquireErr != nil || !acquired {
 			selection.ReleaseFunc()
 			if acquireErr != nil {
@@ -195,10 +244,24 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			return nil, ErrLiveConcurrencyFull
 		}
 
-		created, createErr := s.createUpstreamLiveCall(ctx, account, request, attestation)
+		leaseRecord := &LiveCallRecord{AccountID: account.ID, UserID: identity.UserID, APIKeyID: identity.APIKeyID, LeaseID: leaseID}
+		createCtx, stopLeaseKeeper := startLiveLeaseKeeper(ctx, liveLeaseRefreshInterval, func(refreshCtx context.Context) error {
+			if !s.refreshLiveLeaseContext(refreshCtx, leaseRecord) {
+				return ErrLiveUnavailable
+			}
+			return nil
+		})
+		created, createErr := s.createUpstreamLiveCall(createCtx, account, request, attestation)
 		selection.ReleaseFunc()
 		if createErr != nil {
+			keeperErr := stopLeaseKeeper()
 			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID)
+			if keeperErr != nil {
+				return nil, keeperErr
+			}
+			if ctx.Err() != nil {
+				return nil, context.Cause(ctx)
+			}
 			if !s.shouldFailoverLiveCreateError(account, createErr) {
 				return nil, createErr
 			}
@@ -231,9 +294,27 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			AttestationCiphertext: attestationCiphertext,
 		}
 		mappingTTL := s.liveMaxSessionDuration() + 5*time.Minute
-		if saveErr := store.SaveLiveCall(ctx, record, mappingTTL); saveErr != nil {
-			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID)
+		if saveErr := store.SaveLiveCall(createCtx, record, mappingTTL); saveErr != nil {
+			keeperErr := stopLeaseKeeper()
+			s.abortLiveCallCreation(record)
+			if keeperErr != nil {
+				return nil, keeperErr
+			}
 			return nil, fmt.Errorf("save live call mapping: %w", saveErr)
+		}
+		if keeperErr := stopLeaseKeeper(); keeperErr != nil {
+			s.abortLiveCallCreation(record)
+			return nil, keeperErr
+		}
+		if ctx.Err() != nil {
+			s.abortLiveCallCreation(record)
+			return nil, context.Cause(ctx)
+		}
+		// Confirm the lease after stopping the creation keeper so a late failed
+		// refresh cannot race a successful handoff to the observer.
+		if !s.refreshLiveLease(record) {
+			s.abortLiveCallCreation(record)
+			return nil, ErrLiveUnavailable
 		}
 		created.Account = account
 		go s.observeLiveCall(record)
@@ -243,6 +324,22 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		return nil, lastErr
 	}
 	return nil, ErrLiveUnavailable
+}
+
+// A successful upstream create may still fail to persist or hand off locally.
+// Best-effort close the upstream call before releasing its remaining slots.
+func (s *OpenAIGatewayService) abortLiveCallCreation(record *LiveCallRecord) {
+	closeCtx, cancel := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
+	upstream, err := s.dialLiveSideband(closeCtx, record)
+	if err == nil {
+		_ = upstream.WriteFrame(closeCtx, coderws.MessageText, []byte(`{"type":"session.close"}`))
+		_ = upstream.Close()
+	}
+	cancel()
+	s.finalizeLiveCall(record)
+	// Finalization may be unable to mark a missing/failed mapping closed. Slot
+	// release is idempotent and must not depend on the mapping write succeeding.
+	s.releaseLiveLease(record.AccountID, record.UserID, record.APIKeyID, record.LeaseID)
 }
 
 func (s *OpenAIGatewayService) shouldFailoverLiveCreateError(account *Account, err error) bool {
@@ -619,7 +716,9 @@ func (s *OpenAIGatewayService) observeLiveCall(record *LiveCallRecord) {
 		return
 	}
 	owner := uuid.NewString()
-	claimed, claimErr := store.ClaimLiveController(context.Background(), record.CallHash, LiveControllerObserver, owner)
+	claimCtx, cancelClaim := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
+	claimed, claimErr := store.ClaimLiveController(claimCtx, record.CallHash, LiveControllerObserver, owner)
+	cancelClaim()
 	if claimErr != nil {
 		// store 报错时无法确认控制权归属，不能静默退出：若 claim 实际已生效而
 		// observer 消失，租约与 usage log 都会丢。兜底 finalize 是幂等的，即使
@@ -632,7 +731,9 @@ func (s *OpenAIGatewayService) observeLiveCall(record *LiveCallRecord) {
 	}
 	storeErrStreak := 0
 	for {
-		latest, getErr := store.GetLiveCall(context.Background(), record.CallHash)
+		readCtx, cancelRead := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
+		latest, getErr := store.GetLiveCall(readCtx, record.CallHash)
+		cancelRead()
 		if getErr != nil {
 			// 记录已被清理（closed TTL 到期）不是故障，直接退出。
 			if errors.Is(getErr, ErrLiveCallNotFound) {
@@ -650,15 +751,40 @@ func (s *OpenAIGatewayService) observeLiveCall(record *LiveCallRecord) {
 		}
 		storeErrStreak = 0
 		record = latest
-		if record.Controller != LiveControllerObserver {
+		if record.Controller != LiveControllerObserver || record.ControllerOwner != owner {
 			return
 		}
 		if !time.Now().Before(record.ExpiresAt) {
 			s.finalizeLiveCall(record)
 			return
 		}
-		upstream, dialErr := s.dialLiveSideband(context.Background(), record)
+		// Dialing (including credentials/proxy lookup) can outlive the lease.
+		// Refresh only while this observer still owns an open, unexpired call.
+		dialCtx, stopLeaseKeeper := startLiveLeaseKeeper(context.Background(), liveLeaseRefreshInterval, func(refreshCtx context.Context) error {
+			return s.refreshLiveObserverLease(refreshCtx, store, record, owner)
+		})
+		dialErr := s.refreshLiveObserverLease(dialCtx, store, record, owner)
+		var upstream liveFrameConn
+		if dialErr == nil {
+			upstream, dialErr = s.dialLiveSideband(dialCtx, record)
+		}
+		if keeperErr := stopLeaseKeeper(); keeperErr != nil {
+			dialErr = keeperErr
+		}
+		if dialErr == nil {
+			dialErr = s.refreshLiveObserverLease(context.Background(), store, record, owner)
+		}
 		if dialErr != nil {
+			if upstream != nil {
+				_ = upstream.Close()
+			}
+			if errors.Is(dialErr, ErrLiveControllerChanged) || errors.Is(dialErr, ErrLiveCallNotFound) {
+				return
+			}
+			if liveSessionEnded(dialErr) {
+				s.finalizeLiveCall(record)
+				return
+			}
 			if !s.waitForLiveObserverRetry(record) {
 				return
 			}
@@ -677,6 +803,28 @@ func (s *OpenAIGatewayService) observeLiveCall(record *LiveCallRecord) {
 			return
 		}
 	}
+}
+
+func (s *OpenAIGatewayService) refreshLiveObserverLease(ctx context.Context, store LiveCallStore, record *LiveCallRecord, owner string) error {
+	refreshCtx, cancel := context.WithTimeout(ctx, liveRedisOperationTimeout)
+	defer cancel()
+	latest, err := store.GetLiveCall(refreshCtx, record.CallHash)
+	if err != nil {
+		return err
+	}
+	if latest.Controller == LiveControllerClosed {
+		return ErrLiveCallNotFound
+	}
+	if latest.Controller != LiveControllerObserver || latest.ControllerOwner != owner {
+		return ErrLiveControllerChanged
+	}
+	if !time.Now().Before(latest.ExpiresAt) {
+		return context.DeadlineExceeded
+	}
+	if !s.refreshLiveLeaseContext(refreshCtx, latest) {
+		return ErrLiveUnavailable
+	}
+	return nil
 }
 
 func (s *OpenAIGatewayService) runLiveObserverConnection(record *LiveCallRecord, upstream liveFrameConn) error {
@@ -774,11 +922,15 @@ func (s *OpenAIGatewayService) finalizeLiveCallAfterExpiry(record *LiveCallRecor
 }
 
 func (s *OpenAIGatewayService) refreshLiveLease(record *LiveCallRecord) bool {
+	return s.refreshLiveLeaseContext(context.Background(), record)
+}
+
+func (s *OpenAIGatewayService) refreshLiveLeaseContext(ctx context.Context, record *LiveCallRecord) bool {
 	cache, err := s.liveConcurrencyCache()
 	if err != nil {
 		return false
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), liveRedisOperationTimeout)
+	ctx, cancel := context.WithTimeout(ctx, liveRedisOperationTimeout)
 	defer cancel()
 	refreshed, err := cache.RefreshLiveLease(ctx, record.AccountID, record.UserID, record.APIKeyID, record.LeaseID)
 	return err == nil && refreshed

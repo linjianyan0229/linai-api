@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/requestmodel"
@@ -270,9 +271,10 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 	if parent != nil {
 		done = service.InflightReservationFromContext(parent).Acquire()
 	}
+	requestContext := usageRecordContext(parent, context.Background())
 	return func(ctx context.Context) {
 		defer done()
-		task(usageRecordContext(parent, ctx))
+		task(usageRecordContext(requestContext, ctx))
 	}, done
 }
 
@@ -422,12 +424,11 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// Read request body
 	body, err := readLenientJSONRequestBodyWithPrealloc(c.Request, h.cfg)
 	if err != nil {
-		if maxErr, ok := extractMaxBytesError(err); ok {
-			h.errorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
+		if handleRequestBodyReadError(c, reqLog, err) {
 			return
 		}
-		logRequestBodyReadFailure(reqLog, c.Request, err)
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+		status, message := requestBodyReadFailure(reqLog, c.Request, err)
+		h.errorResponse(c, status, "invalid_request_error", message)
 		return
 	}
 
@@ -656,6 +657,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	// 该判断已排除 Codex 被动 image_gen namespace，避免 CC-only 账号被误过滤（#4476）。
 	needsResponses := nativeV2 || legacyCompact
 	requiredCapability := openAIResponsesRequiredCapabilityForRequest(imageIntent, needsResponses, requestPlatform)
+	imageSizeRouted := imageIntent && requestPlatform == service.PlatformOpenAI
+	imageSize := ""
+	if imageSizeRouted {
+		imageSize = service.OpenAIResponsesImageRequestSize(body)
+		c.Request = c.Request.WithContext(service.WithOpenAIImageSizeRouting(c.Request.Context(), imageSize))
+	}
 
 	// 分组利润控制：请求级装配定价上下文——pricingAt 固定本请求的
 	// D 与计费高峰因子，选号、槽位终检与全部 failover 重入共用同一门与阈值。
@@ -701,6 +708,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "compact_not_supported", "No available accounts support /responses/compact", streamStarted)
 					return
+				}
+				if imageSizeRouted {
+					if tier, unsupported := h.gatewayService.OpenAIImageSizeTierUnsupported(c.Request.Context(), apiKey.GroupID, forwardModel, imageSize, requiredCapability, ""); unsupported {
+						service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+						h.handleStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIImageSizeTierUnsupportedMessage(imageSize, tier), streamStarted)
+						return
+					}
 				}
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
 				cls = classifySelectionFailureError(err, cls)
@@ -797,6 +811,9 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			}()
 			return h.gatewayService.Forward(c.Request.Context(), c, account, attemptBody)
 		}()
+		if h.handleForwardRequestBodyMemoryOverload(c, err, streamStarted) {
+			return
+		}
 		var cyberBlockBodyHTTP []byte
 		if service.GetOpsCyberPolicy(c) != nil {
 			cyberBlockBodyHTTP = sessionHashBody
@@ -827,6 +844,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+			channelUsageFields := clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel)
 			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 					Result:             res,
@@ -842,7 +860,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					APIKeyService:      h.apiKeyService,
 					QuotaPlatform:      quotaPlatform,
 					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+					ChannelUsageFields: channelUsageFields,
 					PricingAt:          pricingAt,
 					CyberBlocked:       cyberBlocked,
 					NativeCompactionV2: nativeV2,
@@ -1188,11 +1206,11 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 	body, err := readLenientJSONRequestBodyWithPrealloc(c.Request, h.cfg)
 	if err != nil {
-		if maxErr, ok := extractMaxBytesError(err); ok {
-			h.anthropicErrorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
+		if handleRequestBodyReadError(c, reqLog, err) {
 			return
 		}
-		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
+		status, message := requestBodyReadFailure(reqLog, c.Request, err)
+		h.anthropicErrorResponse(c, status, "invalid_request_error", message)
 		return
 	}
 	if len(body) == 0 {
@@ -1421,6 +1439,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 			sessionID := service.ExtractClientSessionID(c)
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+			channelUsageFields := clientRequestedUsageFields(c, channelMappingMsg, reqModel, res.UpstreamModel)
 			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 					Result:             res,
@@ -1436,7 +1455,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					APIKeyService:      h.apiKeyService,
 					QuotaPlatform:      quotaPlatform,
 					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMappingMsg, reqModel, res.UpstreamModel),
+					ChannelUsageFields: channelUsageFields,
 					PricingAt:          pricingAt,
 					CyberBlocked:       cyberBlocked,
 				}); err != nil {
@@ -2636,7 +2655,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	// 必须尽早注册，确保任何 early return 都能释放已获取的并发槽位。
 	defer releaseTurnSlots()
 
-	userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID)
+	userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID, apiKey.Concurrency)
 	if err != nil {
 		reqLog.Warn("openai.websocket_user_slot_acquire_failed", zap.Error(err))
 		closeOpenAIClientWS(wsConn, coderws.StatusInternalError, "failed to acquire user concurrency slot")
@@ -2651,7 +2670,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		if currentUserRelease != nil {
 			return true
 		}
-		userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID)
+		userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID, apiKey.Concurrency)
 		if err != nil {
 			reqLog.Warn("openai.websocket_user_slot_reacquire_failed", zap.Error(err))
 			closeOpenAIClientWS(wsConn, coderws.StatusInternalError, "failed to acquire user concurrency slot")
@@ -3077,7 +3096,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				// 防御式清理：避免异常路径下旧槽位覆盖导致泄漏。
 				releaseTurnSlots()
 				// 非首轮 turn 需要重新抢占并发槽位，避免长连接空闲占槽。
-				userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID)
+				userReleaseFunc, userAcquired, err := h.concurrencyHelper.TryAcquireUserSlotForAPIKey(ctx, subject.UserID, subject.Concurrency, apiKey.ID, apiKey.Concurrency)
 				if err != nil {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusInternalError, "failed to acquire user concurrency slot", err)
 				}
@@ -3710,6 +3729,26 @@ func (h *OpenAIGatewayHandler) mapUpstreamError(statusCode int) (int, string, st
 	default:
 		return http.StatusBadGateway, "upstream_error", "Upstream request failed"
 	}
+}
+
+// handleForwardRequestBodyMemoryOverload ends a request when rewriting exhausts
+// local buffering capacity, without retrying or penalizing the upstream account.
+func (h *OpenAIGatewayHandler) handleForwardRequestBodyMemoryOverload(c *gin.Context, err error, streamStarted bool) bool {
+	if !errors.Is(err, pkghttputil.ErrRequestBodyMemoryBudget) {
+		return false
+	}
+	// Stop compact heartbeats before inspecting or writing the response headers.
+	if service.StopOpenAICompactSSEKeepaliveCommitted(c) {
+		streamStarted = true
+	}
+	streamStarted = streamStarted || c.Writer.Written()
+	if !c.Writer.Written() {
+		c.Header("Retry-After", "1")
+	}
+	h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "service_unavailable",
+		"Request body buffering capacity is exhausted; retry later", streamStarted)
+	c.Abort()
+	return true
 }
 
 // handleStreamingAwareError handles errors that may occur after streaming has started

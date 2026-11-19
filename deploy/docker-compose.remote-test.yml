@@ -1,0 +1,19 @@
+# Remote Docker test overrides. Named volumes keep test data on the remote
+# Docker host instead of inside the uploaded source tree.
+services:
+  sub2api:
+    volumes:
+      - remote_sub2api_data:/app/data
+
+  postgres:
+    volumes:
+      - remote_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    volumes:
+      - remote_redis_data:/data
+
+volumes:
+  remote_sub2api_data:
+  remote_postgres_data:
+  remote_redis_data:

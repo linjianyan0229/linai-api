@@ -27,6 +27,8 @@ const (
 	FieldKey = "key"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldConcurrency holds the string denoting the concurrency field in the database.
+	FieldConcurrency = "concurrency"
 	// FieldGroupID holds the string denoting the group_id field in the database.
 	FieldGroupID = "group_id"
 	// FieldStatus holds the string denoting the status field in the database.
@@ -101,6 +103,7 @@ var Columns = []string{
 	FieldUserID,
 	FieldKey,
 	FieldName,
+	FieldConcurrency,
 	FieldGroupID,
 	FieldStatus,
 	FieldLastUsedAt,
@@ -148,6 +151,10 @@ var (
 	KeyValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
+	DefaultConcurrency int
+	// ConcurrencyValidator is a validator for the "concurrency" field. It is called by the builders before save.
+	ConcurrencyValidator func(int) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -206,6 +213,11 @@ func ByKey(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByConcurrency orders the results by the concurrency field.
+func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConcurrency, opts...).ToFunc()
 }
 
 // ByGroupID orders the results by the group_id field.

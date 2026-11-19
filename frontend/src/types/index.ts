@@ -663,6 +663,7 @@ export interface AdminGroup extends Group {
   // 管理端的 name / description 始终是原字段，各语言译文另放在 i18n 里
   i18n?: GroupI18n
   force_openai_fast: boolean
+  force_openai_ultrafast: boolean
   free_openai_fast: boolean
   model_pricing: import('@/api/admin/channels').ChannelModelPricing[]
   // 分组利润控制（openai/anthropic/gemini/grok/antigravity 分组可启用；margin/buffer 为小数存储）。
@@ -782,6 +783,7 @@ export interface ApiKey {
   created_at: string
   updated_at: string
   current_concurrency: number
+  concurrency?: number // Per-key concurrency cap (0 = no additional cap; user total still applies)
   group?: Group
   rate_limit_5h: number
   rate_limit_1d: number
@@ -804,6 +806,7 @@ export interface CreateApiKeyRequest {
   ip_whitelist?: string[]
   ip_blacklist?: string[]
   quota?: number // Quota limit in USD (0 = unlimited)
+  concurrency?: number // Integer 0..100000; 0 adds no cap beyond the user's total concurrency
   expires_in_days?: number // Days until expiry (null = never expires)
   rate_limit_5h?: number
   rate_limit_1d?: number
@@ -817,6 +820,7 @@ export interface UpdateApiKeyRequest {
   ip_whitelist?: string[]
   ip_blacklist?: string[]
   quota?: number // Quota limit in USD (null = no change, 0 = unlimited)
+  concurrency?: number // Omit to preserve; 0 clears the per-key cap, user total still applies
   expires_at?: string | null // Expiration time (null = no change)
   reset_quota?: boolean // Reset quota_used to 0
   rate_limit_5h?: number
@@ -839,6 +843,7 @@ export interface CreateGroupRequest {
   monthly_limit_usd?: number | null
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
+  force_openai_ultrafast?: boolean
   free_openai_fast?: boolean
   model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
   allow_image_generation?: boolean
@@ -913,6 +918,7 @@ export interface UpdateGroupRequest {
   monthly_limit_usd?: number | null
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
+  force_openai_ultrafast?: boolean
   free_openai_fast?: boolean
   model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
   allow_image_generation?: boolean
@@ -1466,6 +1472,7 @@ export interface WindowStats {
 
 export interface UsageProgress {
   utilization: number // Percentage (0-100+, 100 = 100%)
+  utilization_unknown?: boolean
   resets_at: string | null
   remaining_seconds: number
   window_stats?: WindowStats | null // 窗口期统计（从窗口开始到当前的使用量）
@@ -1474,6 +1481,19 @@ export interface UsageProgress {
 }
 
 // Antigravity 单个模型的配额信息
+export interface AntigravityQuotaWindow {
+  window: string // '5h' or 'weekly'
+  utilization: number // 0-100
+  resets_at: string | null
+}
+
+export interface AntigravityQuotaGroup {
+  key: string // bucket prefix: 'gemini' or '3p' (Claude and GPT)
+  name: string
+  description?: string
+  windows: AntigravityQuotaWindow[]
+}
+
 export interface AntigravityModelQuota {
   utilization: number // 使用率 0-100
   reset_time: string  // 重置时间 ISO8601
@@ -1537,6 +1557,8 @@ export interface AccountUsageInfo {
   gemini_pro_minute?: UsageProgress | null
   gemini_flash_minute?: UsageProgress | null
   antigravity_quota?: Record<string, AntigravityModelQuota> | null
+  // Per-group 5-hour and weekly windows (retrieveUserQuotaSummary); every model of a group shares them.
+  antigravity_quota_groups?: AntigravityQuotaGroup[] | null
   grok_request_quota?: GrokQuotaWindow | null
   grok_token_quota?: GrokQuotaWindow | null
   grok_retry_after_seconds?: number | null
@@ -1856,6 +1878,8 @@ export interface UsageLog {
   cache_read_tokens: number
   cache_creation_5m_tokens: number
   cache_creation_1h_tokens: number
+  cache_creation_30m_tokens?: number
+  cache_creation_12h_tokens?: number
 
   input_cost: number
   output_cost: number

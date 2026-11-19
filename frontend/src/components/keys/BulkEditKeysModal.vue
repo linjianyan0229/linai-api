@@ -63,13 +63,14 @@
               v-model="limits[field.key]"
               type="number"
               min="0"
-              step="any"
+              :max="field.key === 'concurrency' ? 100000 : undefined"
+              :step="field.key === 'concurrency' ? 1 : 'any'"
               required
               class="input"
               :aria-label="t(field.label)"
               :data-test="`${field.key}-input`"
             />
-            <p class="input-hint">{{ t('keys.bulkEdit.limitHint') }}</p>
+            <p class="input-hint">{{ t(field.key === 'concurrency' ? 'keys.concurrencyLimitHint' : 'keys.bulkEdit.limitHint') }}</p>
           </div>
         </div>
 
@@ -158,7 +159,7 @@ import Select from '@/components/common/Select.vue'
 import type { ApiKey, Group, UpdateApiKeyRequest } from '@/types'
 
 type SelectedKey = Pick<ApiKey, 'id' | 'name'>
-type LimitField = 'quota' | 'rate_limit_5h' | 'rate_limit_1d' | 'rate_limit_7d'
+type LimitField = 'concurrency' | 'quota' | 'rate_limit_5h' | 'rate_limit_1d' | 'rate_limit_7d'
 type IPField = 'ip_whitelist' | 'ip_blacklist'
 type EditableField = LimitField | IPField | 'group_id' | 'status' | 'expires_at'
 
@@ -180,6 +181,7 @@ const failures = ref<Array<{ id: number; name: string; message: string }>>([])
 const enabled = reactive<Record<EditableField, boolean>>({
   group_id: false,
   status: false,
+  concurrency: false,
   quota: false,
   rate_limit_5h: false,
   rate_limit_1d: false,
@@ -191,12 +193,13 @@ const enabled = reactive<Record<EditableField, boolean>>({
 const groupId = ref<number | null>(null)
 const status = ref<'active' | 'inactive'>('active')
 const limits = reactive<Record<LimitField, string | number>>({
-  quota: '', rate_limit_5h: '', rate_limit_1d: '', rate_limit_7d: ''
+  concurrency: '', quota: '', rate_limit_5h: '', rate_limit_1d: '', rate_limit_7d: ''
 })
 const ipLists = reactive<Record<IPField, string>>({ ip_whitelist: '', ip_blacklist: '' })
 const neverExpires = ref(false)
 const expirationDate = ref('')
 const limitFields: Array<{ key: LimitField; label: string }> = [
+  { key: 'concurrency', label: 'keys.concurrencyLimit' },
   { key: 'quota', label: 'keys.quotaAmount' },
   { key: 'rate_limit_5h', label: 'keys.rateLimit5h' },
   { key: 'rate_limit_1d', label: 'keys.rateLimit1d' },
@@ -219,6 +222,9 @@ const validationError = computed(() => {
   for (const { key } of limitFields) {
     if (!enabled[key]) continue
     const value = String(limits[key]).trim()
+    if (key === 'concurrency' && (!value || !Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 100000)) {
+      return t('keys.invalidConcurrency')
+    }
     if (!value || !Number.isFinite(Number(value)) || Number(value) < 0) {
       return t('keys.bulkEdit.invalidLimit')
     }

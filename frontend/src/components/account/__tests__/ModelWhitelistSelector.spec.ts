@@ -189,6 +189,15 @@ describe('ModelWhitelistSelector', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([[['gpt-latest']]])
   })
 
+  it.each(['gpt-*', '*', 'gemini-*-preview'])('rejects wildcard whitelist entry %s with an exact-name hint', async (model) => {
+    const wrapper = mountSelector()
+    await wrapper.get('input[placeholder="admin.accounts.enterCustomModelName"]').setValue(model)
+    await wrapper.findAll('button').find(button => button.text() === 'admin.accounts.addModel')!.trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(showInfo).toHaveBeenCalledWith('admin.accounts.modelWildcardNotSupported')
+    wrapper.unmount()
+  })
+
   it('still allows custom models without a mapping prop', async () => {
     const wrapper = mountSelector()
     await wrapper.get('input[placeholder="admin.accounts.enterCustomModelName"]').setValue('custom-model')

@@ -243,9 +243,11 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
 	scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
+	scanner.Split(newBoundedSSESplit(s.cfg, maxLineSize, nil))
 
 	var finalResp *apicompat.AnthropicResponse
 	var usage ClaudeUsage
+	streamStatus := &anthropicCompatStream{body: resp.Body}
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -266,6 +268,11 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		var event apicompat.AnthropicStreamEvent
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
 			continue
+		}
+
+		streamStatus.observe(&event, payload)
+		if streamStatus.upstreamErrType != "" {
+			break
 		}
 
 		// message_start carries the initial response structure and cache usage
@@ -310,20 +317,24 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 		}
 	}
 
+	streamStatus.readErr = scanner.Err()
+	if failure := streamStatus.failure(); failure != nil {
+		_ = resp.Body.Close()
+		writeGatewayCCError(c, http.StatusBadGateway, "server_error", failure.message)
+		return &ForwardResult{
+			RequestID: requestID, UpstreamHeaders: resp.Header, Usage: usage,
+			Model: originalModel, UpstreamModel: mappedModel, ReasoningEffort: reasoningEffort,
+			Duration: time.Since(startTime),
+		}, failure.err
+	}
+
 	if finalResp == nil {
 		writeGatewayCCError(c, http.StatusBadGateway, "server_error", "Upstream stream ended without a response")
 		return nil, fmt.Errorf("upstream stream ended without response")
 	}
 
-	// Update usage from accumulated delta
-	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		finalResp.Usage = apicompat.AnthropicUsage{
-			InputTokens:              usage.InputTokens,
-			OutputTokens:             usage.OutputTokens,
-			CacheCreationInputTokens: usage.CacheCreationInputTokens,
-			CacheReadInputTokens:     usage.CacheReadInputTokens,
-		}
-	}
+	// Cache-only events also carry billable usage; always use the merged snapshot.
+	normalizeAnthropicEventUsageForResponses(&apicompat.AnthropicStreamEvent{Message: finalResp}, usage)
 
 	// Chain: Anthropic → Responses → Chat Completions
 	responsesResp := apicompat.AnthropicToResponsesResponse(finalResp)

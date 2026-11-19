@@ -134,6 +134,21 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 		}})
 		return
 	}
+	if subject.UserID <= 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"type": "api_error", "message": "User context not found"}})
+		return
+	}
+	if h.concurrencyHelper == nil || h.concurrencyHelper.concurrencyService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"type": "api_error", "message": "Concurrency service unavailable"}})
+		return
+	}
+	var streamStarted bool
+	userRelease, acquireErr := h.concurrencyHelper.AcquireUserSlotWithWait(c, subject.UserID, subject.Concurrency, false, &streamStarted)
+	if acquireErr != nil {
+		h.handleConcurrencyError(c, acquireErr, "user", streamStarted)
+		return
+	}
+	defer wrapReleaseOnDone(c.Request.Context(), userRelease)()
 
 	failedAccounts := make(map[int64]struct{})
 	var account *service.Account

@@ -5,6 +5,7 @@ FRONTEND_CRITICAL_VITEST := \
 	src/api/__tests__/client.spec.ts \
 	src/api/__tests__/tokenRefresh.spec.ts \
 	src/api/__tests__/keys.bulkUpdate.spec.ts \
+	src/api/__tests__/keys.concurrency.spec.ts \
 	src/composables/__tests__/useModelWhitelist.spec.ts \
 	src/components/account/__tests__/OpenAIReferralCell.spec.ts \
 	src/components/account/__tests__/OpenAIReferralCell.transport.spec.ts \
@@ -16,6 +17,7 @@ FRONTEND_CRITICAL_VITEST := \
 	src/components/account/__tests__/credentialsBuilder.spec.ts \
 	src/components/account/__tests__/OpenCodeGoProtocolRulesEditor.spec.ts \
 	src/components/keys/__tests__/BulkEditKeysModal.spec.ts \
+	src/components/admin/user/__tests__/UserApiKeysModal.spec.ts \
 	src/components/admin/user/__tests__/UserPlatformQuotaModal.spec.ts \
 	src/views/user/__tests__/KeysView.spec.ts \
 	src/api/__tests__/channelMonitorV2.spec.ts \
@@ -30,7 +32,31 @@ FRONTEND_CRITICAL_VITEST := \
 	src/features/channel-monitor-v2/__tests__/designSystem.structure.spec.ts \
 	src/features/channel-monitor-v2/__tests__/monitorFormat.spec.ts \
 	src/features/channel-monitor-v2/__tests__/monitorZoom.spec.ts \
-	src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts
+	src/components/admin/channel/__tests__/PricingEntryCard.modelDefaultPrice.spec.ts \
+	src/api/__tests__/admin.emailBlacklist.spec.ts \
+	src/components/account/__tests__/AccountStatusIndicator.spec.ts \
+	src/components/account/__tests__/AccountUsageCell.spec.ts \
+	src/components/account/__tests__/BulkEditAccountModal.spec.ts \
+	src/components/account/__tests__/CNProviderQuotaCell.spec.ts \
+	src/components/account/__tests__/ModelWhitelistSelector.spec.ts \
+	src/components/account/__tests__/OpenAIImageSizeTiersField.spec.ts \
+	src/components/admin/channel/__tests__/PricingEntryCard.timePricing.spec.ts \
+	src/components/admin/channel/__tests__/types.spec.ts \
+	src/components/admin/settings/__tests__/RegistrationEmailBlacklistEditor.spec.ts \
+	src/components/admin/usage/__tests__/UsageTable.spec.ts \
+	src/components/keys/__tests__/UseKeyModal.spec.ts \
+	src/components/modelPlaza/__tests__/PlazaModelPricingTable.spec.ts \
+	src/utils/__tests__/ccswitchImport.spec.ts \
+	src/utils/__tests__/intervalPrices.spec.ts \
+	src/utils/__tests__/registrationEmailBlacklist.spec.ts \
+	src/views/admin/__tests__/AccountsView.lite.spec.ts \
+	src/views/admin/__tests__/ChannelsView.bedrockCompat.spec.ts \
+	src/views/admin/__tests__/ChannelsView.ultrafastPricing.spec.ts \
+	src/views/admin/__tests__/groupsOpenAIFast.spec.ts \
+	src/views/admin/__tests__/GroupsView.codexManifest.spec.ts \
+	src/views/admin/__tests__/GroupsView.openaiForcedTier.spec.ts \
+	src/views/admin/__tests__/UsageView.spec.ts \
+	src/views/user/__tests__/UsageView.spec.ts
 
 # 一键编译前后端
 build: build-backend build-frontend

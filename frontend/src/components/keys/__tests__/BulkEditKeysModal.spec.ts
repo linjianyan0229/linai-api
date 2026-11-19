@@ -68,6 +68,29 @@ describe('BulkEditKeysModal', () => {
     expect(bulkUpdate).toHaveBeenCalledWith([1, 2], { rate_limit_1d: 0 })
   })
 
+  it.each([0, 1, 100000])('updates only the explicitly selected concurrency cap to %i', async (concurrency) => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-test="enable-concurrency"]').setValue(true)
+    const input = wrapper.get('[data-test="concurrency-input"]')
+    expect(input.attributes('step')).toBe('1')
+    expect(input.attributes('max')).toBe('100000')
+    await input.setValue(String(concurrency))
+    expect(wrapper.text()).toContain('keys.concurrencyLimitHint')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], { concurrency })
+  })
+
+  it.each(['', '-1', '1.5', '100001'])('rejects an invalid concurrency cap: %s', async (value) => {
+    const wrapper = mountModal()
+    await wrapper.get('[data-test="enable-concurrency"]').setValue(true)
+    await wrapper.get('[data-test="concurrency-input"]').setValue(value)
+    await wrapper.get('form').trigger('submit')
+    expect(bulkUpdate).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[role="alert"]').text()).toContain('keys.invalidConcurrency')
+  })
+
   it.each(['', '-1', 'not-a-number'])('rejects an invalid selected quota: %s', async (value) => {
     const wrapper = mountModal()
     await wrapper.get('[data-test="enable-quota"]').setValue(true)

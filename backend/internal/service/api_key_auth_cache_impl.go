@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 28 // v28: immutable per-upstream dynamic group pricing
+const apiKeyAuthSnapshotVersion = 30 // v30: independent API key concurrency and group forced Ultra Fast
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -341,6 +341,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 		UserID:      apiKey.UserID,
 		GroupID:     apiKey.GroupID,
 		Name:        apiKey.Name,
+		Concurrency: apiKey.Concurrency,
 		Status:      apiKey.Status,
 		IPWhitelist: apiKey.IPWhitelist,
 		IPBlacklist: apiKey.IPBlacklist,
@@ -420,6 +421,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			AllowMessagesDispatch:           apiKey.Group.AllowMessagesDispatch,
 			AllowLive:                       apiKey.Group.AllowLive,
 			ForceOpenAIFast:                 apiKey.Group.ForceOpenAIFast,
+			ForceOpenAIUltrafast:            apiKey.Group.ForceOpenAIUltrafast,
 			FreeOpenAIFast:                  apiKey.Group.FreeOpenAIFast,
 			DefaultMappedModel:              apiKey.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:     apiKey.Group.MessagesDispatchModelConfig,
@@ -455,6 +457,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 		GroupID:     snapshot.GroupID,
 		Key:         key,
 		Name:        snapshot.Name,
+		Concurrency: snapshot.Concurrency,
 		Status:      snapshot.Status,
 		IPWhitelist: snapshot.IPWhitelist,
 		IPBlacklist: snapshot.IPBlacklist,
@@ -527,6 +530,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			AllowMessagesDispatch:           snapshot.Group.AllowMessagesDispatch,
 			AllowLive:                       snapshot.Group.AllowLive,
 			ForceOpenAIFast:                 snapshot.Group.ForceOpenAIFast,
+			ForceOpenAIUltrafast:            snapshot.Group.ForceOpenAIUltrafast,
 			FreeOpenAIFast:                  snapshot.Group.FreeOpenAIFast,
 			DefaultMappedModel:              snapshot.Group.DefaultMappedModel,
 			MessagesDispatchModelConfig:     snapshot.Group.MessagesDispatchModelConfig,

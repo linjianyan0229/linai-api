@@ -85,6 +85,20 @@ func (_c *APIKeyCreate) SetName(v string) *APIKeyCreate {
 	return _c
 }
 
+// SetConcurrency sets the "concurrency" field.
+func (_c *APIKeyCreate) SetConcurrency(v int) *APIKeyCreate {
+	_c.mutation.SetConcurrency(v)
+	return _c
+}
+
+// SetNillableConcurrency sets the "concurrency" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableConcurrency(v *int) *APIKeyCreate {
+	if v != nil {
+		_c.SetConcurrency(*v)
+	}
+	return _c
+}
+
 // SetGroupID sets the "group_id" field.
 func (_c *APIKeyCreate) SetGroupID(v int64) *APIKeyCreate {
 	_c.mutation.SetGroupID(v)
@@ -383,6 +397,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Concurrency(); !ok {
+		v := apikey.DefaultConcurrency
+		_c.mutation.SetConcurrency(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -447,6 +465,14 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Concurrency(); !ok {
+		return &ValidationError{Name: "concurrency", err: errors.New(`ent: missing required field "APIKey.concurrency"`)}
+	}
+	if v, ok := _c.mutation.Concurrency(); ok {
+		if err := apikey.ConcurrencyValidator(v); err != nil {
+			return &ValidationError{Name: "concurrency", err: fmt.Errorf(`ent: validator failed for field "APIKey.concurrency": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
@@ -530,6 +556,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.Concurrency(); ok {
+		_spec.SetField(apikey.FieldConcurrency, field.TypeInt, value)
+		_node.Concurrency = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -760,6 +790,24 @@ func (u *APIKeyUpsert) SetName(v string) *APIKeyUpsert {
 // UpdateName sets the "name" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateName() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldName)
+	return u
+}
+
+// SetConcurrency sets the "concurrency" field.
+func (u *APIKeyUpsert) SetConcurrency(v int) *APIKeyUpsert {
+	u.Set(apikey.FieldConcurrency, v)
+	return u
+}
+
+// UpdateConcurrency sets the "concurrency" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateConcurrency() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldConcurrency)
+	return u
+}
+
+// AddConcurrency adds v to the "concurrency" field.
+func (u *APIKeyUpsert) AddConcurrency(v int) *APIKeyUpsert {
+	u.Add(apikey.FieldConcurrency, v)
 	return u
 }
 
@@ -1182,6 +1230,27 @@ func (u *APIKeyUpsertOne) SetName(v string) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateName() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetConcurrency sets the "concurrency" field.
+func (u *APIKeyUpsertOne) SetConcurrency(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetConcurrency(v)
+	})
+}
+
+// AddConcurrency adds v to the "concurrency" field.
+func (u *APIKeyUpsertOne) AddConcurrency(v int) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddConcurrency(v)
+	})
+}
+
+// UpdateConcurrency sets the "concurrency" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateConcurrency() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateConcurrency()
 	})
 }
 
@@ -1820,6 +1889,27 @@ func (u *APIKeyUpsertBulk) SetName(v string) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateName() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetConcurrency sets the "concurrency" field.
+func (u *APIKeyUpsertBulk) SetConcurrency(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetConcurrency(v)
+	})
+}
+
+// AddConcurrency adds v to the "concurrency" field.
+func (u *APIKeyUpsertBulk) AddConcurrency(v int) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddConcurrency(v)
+	})
+}
+
+// UpdateConcurrency sets the "concurrency" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateConcurrency() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateConcurrency()
 	})
 }
 

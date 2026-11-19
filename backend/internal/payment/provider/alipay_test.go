@@ -474,8 +474,133 @@ func TestAlipayRefundRecordsOutRequestNoAsRefundID(t *testing.T) {
 		if resp.Status != tc.wantStatus {
 			t.Fatalf("fund_change=%s status = %q, want %q", tc.fundChange, resp.Status, tc.wantStatus)
 		}
-		if !strings.HasPrefix(gotOutRequestNo, "sub2_7-refund-") || resp.RefundID != gotOutRequestNo {
+		if gotOutRequestNo != "sub2_7-refund-1250" || resp.RefundID != gotOutRequestNo {
 			t.Fatalf("RefundID = %q, out_request_no = %q", resp.RefundID, gotOutRequestNo)
+		}
+	}
+}
+
+func TestAlipayRefundOutRequestNoIsStableAcrossRetries(t *testing.T) {
+	origRefund := alipayTradeRefund
+	t.Cleanup(func() { alipayTradeRefund = origRefund })
+
+	var requestIDs []string
+	alipayTradeRefund = func(_ context.Context, _ *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
+		requestIDs = append(requestIDs, param.OutRequestNo)
+		return &alipay.TradeRefundRsp{FundChange: alipayFundChangeYes}, nil
+	}
+
+	provider := &Alipay{client: &alipay.Client{}}
+	req := payment.RefundRequest{OrderID: "sub2_7", Amount: "12.50", Reason: "r"}
+	for i := 0; i < 2; i++ {
+		if _, err := provider.Refund(context.Background(), req); err != nil {
+			t.Fatalf("Refund() error = %v", err)
+		}
+	}
+	if len(requestIDs) != 2 || requestIDs[0] != "sub2_7-refund-1250" || requestIDs[0] != requestIDs[1] {
+		t.Fatalf("refund retries did not reuse the stable request number: %v", requestIDs)
+	}
+}
+
+// A gateway can accept the first refund before its response is lost. The
+// retry must reuse that request, retain the pending result, and query the same
+// identifier rather than issuing another real refund.
+func TestAlipayRefundRetryAfterTransportFailureDoesNotDoubleRefund(t *testing.T) {
+	for _, transportErr := range []error{context.DeadlineExceeded, errors.New("connection reset by peer")} {
+		t.Run(transportErr.Error(), func(t *testing.T) {
+			origRefund := alipayTradeRefund
+			origQuery := alipayTradeFastPayRefundQuery
+			t.Cleanup(func() {
+				alipayTradeRefund = origRefund
+				alipayTradeFastPayRefundQuery = origQuery
+			})
+			accepted := make(map[string]bool)
+			calls, refundedCents := 0, 0
+			alipayTradeRefund = func(_ context.Context, _ *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
+				calls++
+				if !accepted[param.OutRequestNo] {
+					accepted[param.OutRequestNo] = true
+					refundedCents += 1250
+				}
+				if calls == 1 {
+					return nil, transportErr
+				}
+				return &alipay.TradeRefundRsp{FundChange: "N"}, nil
+			}
+			provider := &Alipay{client: &alipay.Client{}}
+			req := payment.RefundRequest{OrderID: "sub2_7", Amount: "12.50", Reason: "first attempt"}
+			if _, err := provider.Refund(context.Background(), req); !errors.Is(err, transportErr) {
+				t.Fatalf("Refund() error = %v, want original transport error %v", err, transportErr)
+			}
+			req.Reason = "admin retry after uncertain response"
+			pending, err := provider.Refund(context.Background(), req)
+			if err != nil {
+				t.Fatalf("retry Refund() error = %v", err)
+			}
+			if calls != 2 || refundedCents != 1250 || len(accepted) != 1 {
+				t.Fatalf("retry calls=%d refunded=%d accepted=%v, want exactly one real refund", calls, refundedCents, accepted)
+			}
+			if pending.Status != payment.ProviderStatusPending || pending.RefundID != "sub2_7-refund-1250" {
+				t.Fatalf("retry response = %+v, want queryable pending result", pending)
+			}
+			alipayTradeFastPayRefundQuery = func(_ context.Context, _ *alipay.Client, param alipay.TradeFastPayRefundQuery) (*alipay.TradeFastPayRefundQueryRsp, error) {
+				if param.OutTradeNo != req.OrderID || param.OutRequestNo != pending.RefundID {
+					t.Fatalf("query did not use the original refund identifier: %+v", param)
+				}
+				return &alipay.TradeFastPayRefundQueryRsp{
+					Error: alipay.Error{Code: alipay.CodeSuccess}, OutRequestNo: param.OutRequestNo,
+					RefundAmount: req.Amount, RefundStatus: alipayRefundStatusSucc,
+				}, nil
+			}
+			settled, err := provider.QueryRefund(context.Background(), payment.RefundQueryRequest{
+				OrderID: req.OrderID, RefundID: pending.RefundID, Amount: req.Amount,
+			})
+			if err != nil || settled == nil || settled.Status != payment.ProviderStatusSuccess || settled.RefundID != pending.RefundID {
+				t.Fatalf("QueryRefund() = %+v, %v; want successful original refund", settled, err)
+			}
+		})
+	}
+}
+
+func TestAlipayRefundRequestNoSeparatesOrdersAndFormattedAmounts(t *testing.T) {
+	origRefund := alipayTradeRefund
+	t.Cleanup(func() { alipayTradeRefund = origRefund })
+	var got []string
+	alipayTradeRefund = func(_ context.Context, _ *alipay.Client, param alipay.TradeRefund) (*alipay.TradeRefundRsp, error) {
+		got = append(got, param.OutRequestNo)
+		return &alipay.TradeRefundRsp{FundChange: alipayFundChangeYes}, nil
+	}
+	provider := &Alipay{client: &alipay.Client{}}
+	for _, tc := range []struct {
+		order  string
+		amount float64
+		want   string
+	}{
+		{"sub2_7", 12.5, "sub2_7-refund-1250"},
+		{"sub2_7", 12.50, "sub2_7-refund-1250"},
+		{"sub2_7", 12.51, "sub2_7-refund-1251"},
+		{"sub2_8", 12.5, "sub2_8-refund-1250"},
+		{"sub2_7", 0.01, "sub2_7-refund-001"},
+	} {
+		amount := payment.FormatAmountForCurrency(tc.amount, payment.DefaultPaymentCurrency)
+		resp, err := provider.Refund(context.Background(), payment.RefundRequest{OrderID: tc.order, Amount: amount})
+		if err != nil || resp == nil || resp.RefundID != tc.want {
+			t.Fatalf("Refund(order=%q, amount=%q) = %+v, %v; want request %q", tc.order, amount, resp, err, tc.want)
+		}
+		if got[len(got)-1] != tc.want {
+			t.Fatalf("gateway request = %q, want %q", got[len(got)-1], tc.want)
+		}
+	}
+}
+
+func TestAlipayRefundRequestNoSuffixFormatting(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ amount, want string }{
+		{"12.50", "1250"}, {" 12.50 \t", "1250"}, {"0.01", "001"},
+		{"0.00", "000"}, {"", "0"}, {" \t", "0"},
+	} {
+		if got := alipayRefundRequestNoSuffix(tc.amount); got != tc.want {
+			t.Errorf("suffix(%q) = %q, want %q", tc.amount, got, tc.want)
 		}
 	}
 }

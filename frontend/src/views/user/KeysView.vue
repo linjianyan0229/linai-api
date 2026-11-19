@@ -200,8 +200,9 @@
             </div>
           </template>
 
-          <template #cell-current_concurrency="{ value }">
+          <template #cell-current_concurrency="{ value, row }">
             <span
+              :title="t('keys.concurrencyLimitHint')"
               :class="[
                 'inline-flex min-w-8 items-center justify-center rounded px-2 py-1 text-sm font-semibold tabular-nums',
                 (value ?? 0) > 0
@@ -209,7 +210,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-dark-400'
               ]"
             >
-              {{ value ?? 0 }}
+              {{ value ?? 0 }} / {{ (row.concurrency ?? 0) > 0 ? row.concurrency : t('keys.noAdditionalConcurrencyLimit') }}
             </span>
           </template>
 
@@ -217,13 +218,22 @@
             <div class="text-sm">
               <div class="flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.today') }}:</span>
-                <span class="font-medium text-gray-900 dark:text-white">
+                <span
+                  v-if="usageLoading && !usageStats[row.id]"
+                  data-test="usage-pending"
+                  class="inline-block h-3 w-14 animate-pulse rounded bg-gray-200 dark:bg-dark-600"
+                />
+                <span v-else class="font-medium text-gray-900 dark:text-white">
                   ${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}
                 </span>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.total') }}:</span>
-                <span class="font-medium text-gray-900 dark:text-white">
+                <span
+                  v-if="usageLoading && !usageStats[row.id]"
+                  class="inline-block h-3 w-14 animate-pulse rounded bg-gray-200 dark:bg-dark-600"
+                />
+                <span v-else class="font-medium text-gray-900 dark:text-white">
                   ${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}
                 </span>
               </div>
@@ -653,6 +663,23 @@
               <p class="input-hint">{{ t('keys.ipBlacklistHint') }}</p>
             </div>
           </div>
+        </div>
+
+        <div>
+          <label for="key-form-concurrency" class="input-label">{{ t('keys.concurrencyLimit') }}</label>
+          <input
+            id="key-form-concurrency"
+            v-model.number="formData.concurrency"
+            type="number"
+            min="0"
+            max="100000"
+            step="1"
+            required
+            class="input"
+            aria-describedby="key-form-concurrency-hint"
+            data-test="concurrency-input"
+          />
+          <p id="key-form-concurrency-hint" class="input-hint">{{ t('keys.concurrencyLimitHint') }}</p>
         </div>
 
         <!-- Quota Limit Section -->
@@ -1235,7 +1262,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
   { key: 'group', label: t('keys.group'), sortable: true },
-  { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
+  { key: 'current_concurrency', label: t('keys.concurrencyColumn'), sortable: true },
   { key: 'usage', label: t('keys.usage'), sortable: false },
   { key: 'rate_limit', label: t('keys.rateLimitColumn'), sortable: false },
   { key: 'expires_at', label: t('keys.expiresAt'), sortable: true },
@@ -1346,6 +1373,7 @@ const submitting = ref(false)
 const now = ref(new Date())
 let resetTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
+const usageLoading = ref(false)
 const userGroupRates = ref<Record<number, number>>({})
 
 const pagination = ref({
@@ -1406,6 +1434,7 @@ const formData = ref({
   enable_ip_restriction: false,
   ip_whitelist: '',
   ip_blacklist: '',
+  concurrency: 0 as number | string,
   // Quota settings (empty = unlimited)
   enable_quota: false,
   quota: null as number | null,
@@ -1562,6 +1591,7 @@ const loadApiKeys = async () => {
   abortController = controller
   const { signal } = controller
   loading.value = true
+  usageLoading.value = false
   try {
     // Build filters
     const filters: {
@@ -1586,18 +1616,10 @@ const loadApiKeys = async () => {
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
-    // Load usage stats for all API keys in the list
+    // 用量统计要聚合 30 天的 usage_logs，可能比列表慢很多：不阻塞表格渲染，单独加载
+    usageLoading.value = response.items.length > 0
     if (response.items.length > 0) {
-      const keyIds = response.items.map((k) => k.id)
-      try {
-        const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
-        if (signal.aborted) return
-        usageStats.value = usageResponse.stats
-      } catch (e) {
-        if (!isAbortError(e)) {
-          console.error('Failed to load usage stats:', e)
-        }
-      }
+      void loadUsageStats(response.items.map((k) => k.id), signal)
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -1607,6 +1629,22 @@ const loadApiKeys = async () => {
   } finally {
     if (abortController === controller) {
       loading.value = false
+    }
+  }
+}
+
+const loadUsageStats = async (keyIds: number[], signal: AbortSignal) => {
+  try {
+    const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
+    if (signal.aborted) return
+    usageStats.value = usageResponse.stats
+  } catch (e) {
+    if (!isAbortError(e)) {
+      console.error('Failed to load usage stats:', e)
+    }
+  } finally {
+    if (!signal.aborted) {
+      usageLoading.value = false
     }
   }
 }
@@ -1679,6 +1717,7 @@ const editKey = (key: ApiKey) => {
     enable_ip_restriction: hasIPRestriction,
     ip_whitelist: (key.ip_whitelist || []).join('\n'),
     ip_blacklist: (key.ip_blacklist || []).join('\n'),
+    concurrency: key.concurrency ?? 0,
     enable_quota: key.quota > 0,
     quota: key.quota > 0 ? key.quota : null,
     enable_rate_limit: (key.rate_limit_5h > 0) || (key.rate_limit_1d > 0) || (key.rate_limit_7d > 0),
@@ -1771,6 +1810,12 @@ const confirmDelete = (key: ApiKey) => {
 }
 
 const handleSubmit = async () => {
+  const concurrency = Number(formData.value.concurrency)
+  if (String(formData.value.concurrency).trim() === '' || !Number.isInteger(concurrency) || concurrency < 0 || concurrency > 100000) {
+    appStore.showError(t('keys.invalidConcurrency'))
+    return
+  }
+
   // Validate group_id is required
   if (formData.value.group_id === null) {
     appStore.showError(t('keys.groupRequired'))
@@ -1833,6 +1878,7 @@ const handleSubmit = async () => {
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
+        concurrency,
         expires_at: expiresAt,
         rate_limit_5h: rateLimitData.rate_limit_5h,
         rate_limit_1d: rateLimitData.rate_limit_1d,
@@ -1853,7 +1899,8 @@ const handleSubmit = async () => {
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        concurrency
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
     }
@@ -1900,6 +1947,7 @@ const closeModals = () => {
     enable_ip_restriction: false,
     ip_whitelist: '',
     ip_blacklist: '',
+    concurrency: 0,
     enable_quota: false,
     quota: null,
     enable_rate_limit: false,

@@ -45,6 +45,9 @@
                 <svg v-else class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" /></svg>
               </button>
             </div>
+            <div class="flex items-center gap-1" :title="t('keys.concurrencyLimitHint')" data-test="key-concurrency">
+              <span>{{ t('keys.concurrencyColumn') }}: {{ key.current_concurrency ?? 0 }} / {{ (key.concurrency ?? 0) > 0 ? key.concurrency : t('keys.noAdditionalConcurrencyLimit') }}</span>
+            </div>
             <div class="flex items-center gap-1"><span>{{ t('admin.users.columns.created') }}: {{ formatDateTime(key.created_at) }}</span></div>
           </div>
         </div>

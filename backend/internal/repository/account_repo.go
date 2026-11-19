@@ -1478,9 +1478,37 @@ func (r *accountRepository) BatchUpdateLastUsed(ctx context.Context, updates map
 	caseSQL += " END, updated_at = NOW() WHERE id = ANY($" + itoa(idx) + ") AND deleted_at IS NULL"
 	args = append(args, pq.Array(ids))
 
-	_, err := r.sql.ExecContext(ctx, caseSQL, args...)
+	// Match batch billing's ascending account row locks. NO KEY UPDATE does not
+	// block foreign-key KEY SHARE checks on the referenced accounts.
+	exec := r.sql
+	var tx *sql.Tx
+	if db, ok := r.sql.(*sql.DB); ok {
+		var err error
+		if tx, err = db.BeginTx(ctx, nil); err != nil {
+			return err
+		}
+		defer func() {
+			if tx != nil {
+				_ = tx.Rollback()
+			}
+		}()
+		exec = tx
+	}
+	rows, err := exec.QueryContext(ctx, "SELECT id FROM accounts WHERE id = ANY($1) AND deleted_at IS NULL ORDER BY id FOR NO KEY UPDATE", pq.Array(ids))
 	if err != nil {
 		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if _, err := exec.ExecContext(ctx, caseSQL, args...); err != nil {
+		return err
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		tx = nil
 	}
 	lastUsedPayload := make(map[string]int64, len(updates))
 	for id, ts := range updates {

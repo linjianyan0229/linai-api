@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 // ForwardUpstream 使用 base_url + /v1/messages + 双 header 认证透传上游 Claude 请求
@@ -151,12 +152,7 @@ func (s *AntigravityGatewayService) ForwardUpstream(ctx context.Context, c *gin.
 		FirstTokenMs:                  firstTokenMs,
 		ClientDisconnect:              clientDisconnect,
 		UpstreamHeaders:               resp.Header,
-		Usage: ClaudeUsage{
-			InputTokens:              usage.InputTokens,
-			OutputTokens:             usage.OutputTokens,
-			CacheReadInputTokens:     usage.CacheReadInputTokens,
-			CacheCreationInputTokens: usage.CacheCreationInputTokens,
-		},
+		Usage:                         *usage,
 	}, nil
 }
 
@@ -171,6 +167,7 @@ func (s *AntigravityGatewayService) streamUpstreamResponse(c *gin.Context, resp 
 		maxLineSize = s.settingService.cfg.Gateway.MaxLineSize
 	}
 	scanner.Buffer(make([]byte, 64*1024), maxLineSize)
+	scanner.Split(newBoundedSSESplit(s.settingService.cfg, maxLineSize, nil))
 
 	type scanEvent struct {
 		line string
@@ -178,11 +175,16 @@ func (s *AntigravityGatewayService) streamUpstreamResponse(c *gin.Context, resp 
 	}
 	events := make(chan scanEvent, 16)
 	done := make(chan struct{})
+	queueBudget := newSSEQueueBudget(s.settingService.cfg)
 	sendEvent := func(ev scanEvent) bool {
+		if !queueBudget.acquire(len(ev.line), done) {
+			return false
+		}
 		select {
 		case events <- ev:
 			return true
 		case <-done:
+			queueBudget.release(len(ev.line))
 			return false
 		}
 	}
@@ -238,6 +240,9 @@ func (s *AntigravityGatewayService) streamUpstreamResponse(c *gin.Context, resp 
 	for {
 		select {
 		case ev, ok := <-events:
+			if ok {
+				queueBudget.release(len(ev.line))
+			}
 			if !ok {
 				return &antigravityStreamResult{usage: usage, firstTokenMs: firstTokenMs, clientDisconnect: cw.Disconnected()}
 			}
@@ -307,7 +312,7 @@ func (s *AntigravityGatewayService) streamUpstreamResponse(c *gin.Context, resp 
 // 仅读取顶层 event.usage 会漏掉 message_start 的输入侧字段，导致流式透传请求落库的
 // usage_logs 记录 input_tokens=0。
 func (s *AntigravityGatewayService) extractSSEUsage(line string, usage *ClaudeUsage) {
-	if !strings.HasPrefix(line, "data: ") {
+	if usage == nil || !strings.HasPrefix(line, "data: ") {
 		return
 	}
 	dataStr := strings.TrimPrefix(line, "data: ")
@@ -316,7 +321,9 @@ func (s *AntigravityGatewayService) extractSSEUsage(line string, usage *ClaudeUs
 		return
 	}
 	var u map[string]any
+	usagePath := "usage"
 	if eventType, _ := event["type"].(string); eventType == "message_start" {
+		usagePath = "message.usage"
 		if msg, ok := event["message"].(map[string]any); ok {
 			u, _ = msg["usage"].(map[string]any)
 		}
@@ -335,18 +342,7 @@ func (s *AntigravityGatewayService) extractSSEUsage(line string, usage *ClaudeUs
 	if v, ok := u["cache_read_input_tokens"].(float64); ok && int(v) > 0 {
 		usage.CacheReadInputTokens = int(v)
 	}
-	if v, ok := u["cache_creation_input_tokens"].(float64); ok && int(v) > 0 {
-		usage.CacheCreationInputTokens = int(v)
-	}
-	// 解析嵌套的 cache_creation 对象中的 5m/1h 明细
-	if cc, ok := u["cache_creation"].(map[string]any); ok {
-		if v, ok := cc["ephemeral_5m_input_tokens"].(float64); ok {
-			usage.CacheCreation5mTokens = int(v)
-		}
-		if v, ok := cc["ephemeral_1h_input_tokens"].(float64); ok {
-			usage.CacheCreation1hTokens = int(v)
-		}
-	}
+	mergeRawAnthropicCacheCreationUsage(gjson.Get(dataStr, usagePath), usage)
 }
 
 // extractClaudeUsage 从非流式 Claude 响应提取 usage
@@ -366,18 +362,7 @@ func (s *AntigravityGatewayService) extractClaudeUsage(body []byte) *ClaudeUsage
 		if v, ok := u["cache_read_input_tokens"].(float64); ok {
 			usage.CacheReadInputTokens = int(v)
 		}
-		if v, ok := u["cache_creation_input_tokens"].(float64); ok {
-			usage.CacheCreationInputTokens = int(v)
-		}
-		// 解析嵌套的 cache_creation 对象中的 5m/1h 明细
-		if cc, ok := u["cache_creation"].(map[string]any); ok {
-			if v, ok := cc["ephemeral_5m_input_tokens"].(float64); ok {
-				usage.CacheCreation5mTokens = int(v)
-			}
-			if v, ok := cc["ephemeral_1h_input_tokens"].(float64); ok {
-				usage.CacheCreation1hTokens = int(v)
-			}
-		}
+		mergeRawAnthropicCacheCreationUsage(gjson.GetBytes(body, "usage"), usage)
 	}
 	return usage
 }

@@ -4,7 +4,7 @@
 
 # Sub2API
 
-[![Go](https://img.shields.io/badge/Go-1.27.0-00ADD8.svg)](https://golang.org/)
+[![Go](https://img.shields.io/badge/Go-1.27.4-00ADD8.svg)](https://golang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
@@ -200,6 +200,7 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 - **精确计费** - Token 级别的用量追踪和成本计算
 - **智能调度** - 智能账号选择，支持粘性会话
 - **并发控制** - 用户级和账号级并发限制
+- **密钥并发限制** - 用户可为每把 API Key 设置独立并发上限，同时遵守用户总并发限制（[说明](#api-key-并发限制)）
 - **速率限制** - 可配置的请求和 Token 速率限制
 - **内置支付系统** - 支持 EasyPay 易支付、支付宝官方、微信官方、Stripe，用户自助充值，无需独立部署支付服务（[配置指南](docs/PAYMENT_CN.md)）
 - **管理后台** - Web 界面进行监控和管理
@@ -218,12 +219,45 @@ Sub2API 是一个 AI API 网关平台，用于分发和管理 AI 产品订阅的
 
 | 组件 | 技术 |
 |------|------|
-| 后端 | Go 1.27.0, Gin, Ent |
+| 后端 | Go 1.27.4, Gin, Ent |
 | 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
 | 数据库 | PostgreSQL 15+ |
 | 缓存/队列 | Redis 7+ |
 
 ---
+
+## API Key 并发限制
+
+用户可以在「API 密钥」中新建或编辑密钥时设置「密钥并发上限」，也可以通过批量编辑统一调整。列表展示当前并发与密钥上限。
+
+- 取值为 `0..100000` 的整数；`0` 表示不额外限制该密钥，沿用原有行为。
+- 正整数限制这把密钥的同时执行请求数；不同密钥独立计数。
+- 用户总并发上限始终同时生效。多把密钥不能增加用户的总并发额度，密钥上限高于用户上限也不会绕过用户限制。
+
+例如用户总并发为 5，密钥 A 设置 2、密钥 B 设置 4，则 A 最多同时执行 2 个请求，B 最多同时执行 4 个请求，两者合计最多 5 个。
+
+`POST /api/v1/keys` 和 `PUT /api/v1/keys/:id` 支持 `concurrency`：
+
+```json
+{
+  "name": "application-a",
+  "concurrency": 2
+}
+```
+
+创建时省略该字段默认使用 `0`；更新时省略保持原值，显式提交 `0` 清除密钥独立上限。负数、小数、字符串和超过 `100000` 的值会被拒绝。密钥查询、列表及创建/更新结果均返回配置值 `concurrency`，实时使用量仍为 `current_concurrency`。管理 MCP 的密钥创建和更新工具接受同样的字段。
+
+执行语义：
+
+- 普通 HTTP 与 SSE 生成请求按实际执行周期计数。满额时沿用网关的等待与拒绝机制，队列满或等待超时返回 429。
+- Responses WebSocket 按执行中的轮次计数，空闲连接不占请求槽位。已建立连接沿用建连时的限额，修改后需重新连接。
+- Live 与实时语音按会话执行周期计数；Live 和普通请求共享同一把密钥的上限。
+- 异步图片按后台真实生成周期计数，提交返回 202 不会提前释放后台槽位。
+- Gemini/Vertex 批量图片按提交及上传请求期间计数，已提交到上游的异步批任务数量不属于请求并发。
+- 模型目录、用量、任务查询等读取接口，以及原有不计并发的 Token 计数接口，保持原有语义。
+- 显式配置密钥上限后，如果分布式并发服务不可用，请求会失败，不会静默绕过上限。
+
+配置保存在 `api_keys.concurrency`。迁移 `257_api_key_concurrency.sql` 为现有密钥补充默认值 `0` 和数据库约束，并为并发设置变化生成认证缓存失效事件；认证快照版本为 29。
 
 ## Nginx 反向代理注意事项
 
@@ -745,11 +779,13 @@ go generate ./cmd/server
 
 ## OpenAI 图片模型
 
-支持 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。`quality` 支持 `xhigh`、`max`、`auto`，合法自定义尺寸和图片 usage 明细保持透传。
+支持 `gpt-image-2.6-flare`、`gpt-image-2.6-sunburst`，以及 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 和 2.5 的 `2026-09-08` 日期快照，可通过 `/v1/images/generations`、`/v1/images/edits` 调用。保留显式 `complexity`（`low` / `medium` / `high`）；省略时不注入默认值。`quality`、自定义尺寸和图片 usage 明细保持透传。
 
-OAuth / Setup Token 图片请求使用 Responses 主控模型调用 `image_generation` 工具，默认主控为 `gpt-5.6-luna`。可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换为账号支持的文本模型；Docker Compose 用户修改 `.env` 后执行 `docker compose up -d` 重建容器。该配置不会替换所选图片模型，也不会覆盖 `/v1/responses` 请求中已经提供的文本主控模型。
+OAuth / Setup Token 的 1.5、2、2.5 和 2.6 图片请求使用 Codex 原生 Images 端点。旧模型遇到端点 404 / 405 时仍可回退到 Responses；2.6 不回退，避免桥接层忽略图片模型或注入不支持的 `complexity`。其余模型继续通过 Responses 的 `image_generation` 工具调用，默认文本主控为 `gpt-5.6-luna`，可设置 `SUB2API_IMAGES_MAIN_MODEL` 切换。该配置仅影响 Responses 桥接。
 
-升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要加入两个 2.5 模型（日期快照按需加入）；升级不会自动扩大管理员设置的模型权限。新模型内置价格包含官方文本输入、图片输入和图片输出 token 费率，远端价格表尚未更新时使用内置 2.5 价格；实际按次或按 token 计费仍由既有分组/渠道配置决定。
+原生端点保留 JSON / multipart 编辑的 `markup`（图片 URL 或上传文件）、GIF 帧参数及 SVG author 参数；`response_format=url` 使用上游实际输出格式的 MIME。GIF / SVG 可用性和参数生效情况由上游账号权限及端点决定，转发支持不代表上游一定输出该格式。若编辑端点对流式请求返回完整 JSON，网关会转换为完成事件并保留 usage。
+
+升级后，无模型限制的账号自动支持新模型。已有显式账号映射或分组白名单需要主动加入两个 2.6 模型；升级不会扩大已保存的模型权限。2.6 内置官方文本输入、图片输入、缓存及图片输出 token 费率，远端价格表缺失或动态价格服务不可用时仍可兜底；实际按张或按 token 计费继续由既有分组/渠道配置决定。无需数据库迁移或新增环境变量。
 
 ## 简易模式
 

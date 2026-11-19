@@ -61,6 +61,13 @@ type APIKeyConcurrencyCache interface {
 	GetAPIKeyConcurrencyBatch(ctx context.Context, apiKeyIDs []int64) (map[int64]int, error)
 }
 
+// APIKeyConcurrencyLimiter atomically applies a key limit to the same slots
+// used for real-time API key concurrency statistics, including Live sessions.
+type APIKeyConcurrencyLimiter interface {
+	AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error)
+	ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error
+}
+
 // OpenAIWSIngressLeaseCache owns the short-lived distributed lease used to
 // bound live client WebSocket sessions. It is deliberately independent of the
 // request-slot namespace: idle ingress connections do not occupy turn slots.
@@ -411,6 +418,48 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 	return &AcquireResult{
 		Acquired:    false,
 		ReleaseFunc: nil,
+	}, nil
+}
+
+// AcquireAPIKeySlot reserves one request for a key independently of its user's
+// total concurrency. A zero limit preserves best-effort statistics; an explicit
+// limit fails closed if the distributed limiter is unavailable.
+func (s *ConcurrencyService) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int) (*AcquireResult, error) {
+	if maxConcurrency <= 0 {
+		return &AcquireResult{Acquired: true, ReleaseFunc: s.TrackAPIKeySlot(ctx, apiKeyID)}, nil
+	}
+	if s == nil || s.cache == nil || apiKeyID <= 0 {
+		return nil, errors.New("API key concurrency limiter is unavailable")
+	}
+	cache, ok := s.cache.(APIKeyConcurrencyLimiter)
+	if !ok {
+		return nil, errors.New("API key concurrency limiter is unavailable")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	requestID := generateRequestID()
+	acquireCtx, cancel := context.WithTimeout(ctx, apiKeySlotTrackTimeout)
+	acquired, err := cache.AcquireAPIKeySlot(acquireCtx, apiKeyID, maxConcurrency, requestID)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	if !acquired {
+		return &AcquireResult{}, nil
+	}
+	var once sync.Once
+	return &AcquireResult{
+		Acquired: true,
+		ReleaseFunc: func() {
+			once.Do(func() {
+				releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer releaseCancel()
+				if err := cache.ReleaseAPIKeySlot(releaseCtx, apiKeyID, requestID); err != nil {
+					logger.LegacyPrintf("service.concurrency", "Warning: failed to release api key slot for %d (req=%s): %v", apiKeyID, requestID, err)
+				}
+			})
+		},
 	}, nil
 }
 

@@ -25,12 +25,14 @@ type FrameConn interface {
 }
 
 type Usage struct {
-	InputTokens              int
-	ImageInputTokens         int
-	OutputTokens             int
-	CacheCreationInputTokens int
-	CacheReadInputTokens     int
-	ImageOutputTokens        int
+	InputTokens                 int
+	ImageInputTokens            int
+	OutputTokens                int
+	CacheCreationInputTokens    int
+	CacheCreation30mInputTokens int
+	CacheCreation12hInputTokens int
+	CacheReadInputTokens        int
+	ImageOutputTokens           int
 }
 
 type RelayResult struct {
@@ -1163,6 +1165,7 @@ func parseUsageAndAccumulate(
 		CacheReadInputTokens:     cachedTokens,
 		ImageOutputTokens:        int(imageTokens),
 	}
+	parsedUsage.CacheCreation30mInputTokens, parsedUsage.CacheCreation12hInputTokens = openAICacheCreationTTLTokensFromUsage(usageResult, parsedUsage.CacheCreationInputTokens)
 
 	if isTerminalEvent(strings.TrimSpace(eventType)) {
 		if relayUsageHasTokens(parsedUsage) || !relayUsageHasTokens(state.turnUsage) {
@@ -1193,6 +1196,8 @@ func mergeRelayUsageNonZero(dst *Usage, src Usage) {
 	}
 	if src.CacheCreationInputTokens > 0 {
 		dst.CacheCreationInputTokens = src.CacheCreationInputTokens
+		dst.CacheCreation30mInputTokens = src.CacheCreation30mInputTokens
+		dst.CacheCreation12hInputTokens = src.CacheCreation12hInputTokens
 	}
 	if src.CacheReadInputTokens > 0 {
 		dst.CacheReadInputTokens = src.CacheReadInputTokens
@@ -1214,6 +1219,8 @@ func finalizeRelayTurnUsage(state *relayState) Usage {
 	state.usage.ImageInputTokens += turnUsage.ImageInputTokens
 	state.usage.OutputTokens += turnUsage.OutputTokens
 	state.usage.CacheCreationInputTokens += turnUsage.CacheCreationInputTokens
+	state.usage.CacheCreation30mInputTokens += turnUsage.CacheCreation30mInputTokens
+	state.usage.CacheCreation12hInputTokens += turnUsage.CacheCreation12hInputTokens
 	state.usage.CacheReadInputTokens += turnUsage.CacheReadInputTokens
 	state.usage.ImageOutputTokens += turnUsage.ImageOutputTokens
 	state.turnUsage = Usage{}
@@ -1253,6 +1260,28 @@ func openAICacheCreationTokensFromUsage(value gjson.Result) int {
 		}
 	}
 	return 0
+}
+
+// Keep the WebSocket relay's lifetime validation identical to the HTTP usage parser.
+// The aggregate is billed once; incomplete or contradictory buckets use its legacy price.
+func openAICacheCreationTTLTokensFromUsage(value gjson.Result, aggregate int) (int, int) {
+	for _, path := range []string{"input_tokens_details", "prompt_tokens_details"} {
+		details := value.Get(path + ".cache_write_tokens_details")
+		if !details.Exists() {
+			continue
+		}
+		short, long := details.Get("ttl_30m_tokens"), details.Get("ttl_12h_tokens")
+		if short.Type != gjson.Number || long.Type != gjson.Number {
+			return 0, 0
+		}
+		a, b := short.Int(), long.Int()
+		if a < 0 || b < 0 || float64(a) != short.Float() || float64(b) != long.Float() ||
+			a > int64(aggregate) || b != int64(aggregate)-a {
+			return 0, 0
+		}
+		return int(a), int(b)
+	}
+	return 0, 0
 }
 
 func enrichResult(result *RelayResult, state *relayState, duration time.Duration) {

@@ -166,3 +166,19 @@ func catalogTestObject(t *testing.T, value any) map[string]any {
 	}
 	return object
 }
+
+func TestAPIKeyToolConcurrencyBounds(t *testing.T) {
+	for _, spec := range ToolCatalog() {
+		if spec.Name != "user_create_api_key" && spec.Name != "user_update_api_key" {
+			continue
+		}
+		body := catalogTestObject(t, catalogTestObject(t, spec.InputSchema["properties"])["body"])
+		concurrency := catalogTestObject(t, catalogTestObject(t, body["properties"])["concurrency"])
+		if concurrency["type"] != "integer" || concurrency["minimum"] != int64(0) || concurrency["maximum"] != int64(100000) {
+			t.Fatalf("%s must expose the bounded optional concurrency limit: %#v", spec.Name, concurrency)
+		}
+		if required, ok := body["required"].([]string); ok && slices.Contains(required, "concurrency") {
+			t.Fatalf("%s must keep concurrency optional", spec.Name)
+		}
+	}
+}

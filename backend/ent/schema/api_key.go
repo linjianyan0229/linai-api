@@ -41,6 +41,11 @@ func (APIKey) Fields() []ent.Field {
 		field.String("name").
 			MaxLen(100).
 			NotEmpty(),
+		field.Int("concurrency").
+			Default(0).
+			Min(0).
+			Max(100000).
+			Comment("Maximum concurrent requests for this key; 0 inherits the user limit"),
 		field.Int64("group_id").
 			Optional().
 			Nillable(),

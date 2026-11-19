@@ -71,6 +71,7 @@ type APIKey struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	// CurrentConcurrency is the real-time active request count for this API key.
 	CurrentConcurrency int `json:"current_concurrency"`
+	Concurrency        int `json:"concurrency"` // 0 adds no independent limit to the user's total.
 
 	// Rate limit fields
 	RateLimit5h   float64    `json:"rate_limit_5h"`
@@ -178,7 +179,8 @@ type AdminGroup struct {
 	DynamicRateFactor float64 `json:"dynamic_rate_factor"`
 	Group
 	// ForceOpenAIFast 是管理端请求策略，用户侧分组 DTO 无需暴露。
-	ForceOpenAIFast bool `json:"force_openai_fast"`
+	ForceOpenAIFast      bool `json:"force_openai_fast"`
+	ForceOpenAIUltrafast bool `json:"force_openai_ultrafast"`
 	// FreeOpenAIFast 是管理端计费策略，用户侧分组 DTO 无需暴露。
 	FreeOpenAIFast bool `json:"free_openai_fast"`
 
@@ -626,8 +628,10 @@ type UsageLog struct {
 	CacheCreationTokens int `json:"cache_creation_tokens"`
 	CacheReadTokens     int `json:"cache_read_tokens"`
 
-	CacheCreation5mTokens int `json:"cache_creation_5m_tokens"`
-	CacheCreation1hTokens int `json:"cache_creation_1h_tokens"`
+	CacheCreation5mTokens  int `json:"cache_creation_5m_tokens"`
+	CacheCreation1hTokens  int `json:"cache_creation_1h_tokens"`
+	CacheCreation30mTokens int `json:"cache_creation_30m_tokens"`
+	CacheCreation12hTokens int `json:"cache_creation_12h_tokens"`
 
 	InputCost                 float64 `json:"input_cost"`
 	OutputCost                float64 `json:"output_cost"`

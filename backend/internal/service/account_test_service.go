@@ -2600,7 +2600,7 @@ func (s *AccountTestService) buildGeminiOAuthRequest(ctx context.Context, accoun
 }
 
 func (s *AccountTestService) buildGeminiServiceAccountRequest(ctx context.Context, account *Account, modelID string, payload []byte) (*http.Request, error) {
-	fullURL, err := buildVertexGeminiAccountURL(account, modelID, "streamGenerateContent", true)
+	fullURL, err := buildVertexGeminiAccountURL(account, modelID, "streamGenerateContent", true, "")
 	if err != nil {
 		return nil, err
 	}
@@ -3060,6 +3060,9 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 		"n":               1,
 		"response_format": "b64_json",
 	}
+	if size := account.OpenAIImageTestSize(); size != "" {
+		payload["size"] = size
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(payloadBytes))
@@ -3156,7 +3159,9 @@ func (s *AccountTestService) testOpenAIImageOAuth(c *gin.Context, ctx context.Co
 		Endpoint: openAIImagesGenerationsEndpoint,
 		Model:    strings.TrimSpace(modelID),
 		Prompt:   prompt,
+		Size:     account.OpenAIImageTestSize(),
 	}
+	parsed.ExplicitSize = parsed.Size != ""
 	applyOpenAIImagesDefaults(parsed)
 
 	upstreamModel := account.GetMappedModel(parsed.Model)

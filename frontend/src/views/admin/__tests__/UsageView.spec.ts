@@ -752,7 +752,9 @@ describe('admin UsageView model audit export', () => {
 				input_tokens: 1,
 				output_tokens: 1,
 				cache_read_tokens: 0,
-				cache_creation_tokens: 0,
+				cache_creation_tokens: 40,
+				cache_creation_30m_tokens: 12,
+				cache_creation_12h_tokens: 28,
 				duration_ms: 10,
 			}],
 			total: 1,
@@ -797,6 +799,12 @@ describe('admin UsageView model audit export', () => {
 		])
 		const row = sheetAddAoa.mock.calls[0][1][0]
 		expect(row.slice(4, 8)).toEqual(['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.4', 'Yes'])
+		const cacheIndex = headers.indexOf('admin.usage.cacheCreationTokens')
+		expect(headers.slice(cacheIndex + 1, cacheIndex + 5)).toEqual([
+			'admin.usage.cacheCreationTokens (5m)', 'admin.usage.cacheCreationTokens (1h)',
+			'admin.usage.cacheCreationTokens (30m)', 'admin.usage.cacheCreationTokens (12h)',
+		])
+		expect(row.slice(cacheIndex, cacheIndex + 5)).toEqual([40, 0, 0, 12, 28])
 		expect(saveAs).toHaveBeenCalledTimes(1)
 	})
 })

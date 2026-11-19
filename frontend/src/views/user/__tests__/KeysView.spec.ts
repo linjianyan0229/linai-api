@@ -43,6 +43,10 @@ const messages: Record<string, string> = {
   'keys.group': 'Group',
   'keys.id': 'ID',
   'keys.currentConcurrency': 'Current Concurrency',
+  'keys.concurrencyColumn': 'Concurrency (Current / Key Limit)',
+  'keys.concurrencyLimit': 'Key Concurrency Limit',
+  'keys.noAdditionalConcurrencyLimit': 'No extra limit',
+  'keys.concurrencyLimitHint': '0 adds no per-key limit. Your user concurrency limit still applies.',
   'keys.lastUsedAt': 'Last Used',
   'keys.lastUsedIP': 'Last Used IP',
   'keys.rateLimitColumn': 'Rate Limit',
@@ -145,7 +149,7 @@ const TablePageLayoutStub = {
 
 const DataTableStub = {
   name: 'DataTable',
-  props: { columns: Array, data: Array, selectedKeys: Array, selectable: Boolean },
+  props: { columns: Array, data: Array, selectedKeys: Array, selectable: Boolean, loading: Boolean },
   emits: ['sort', 'update:selectedKeys'],
   template: `
     <div>
@@ -165,6 +169,9 @@ const DataTableStub = {
         <slot name="cell-actions" :row="row" />
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
+        </div>
+        <div data-test="usage">
+          <slot name="cell-usage" :row="row" />
         </div>
         <div
           v-if="columns.some((col) => col.key === 'last_used_ip')"
@@ -476,17 +483,70 @@ describe('user KeysView column settings', () => {
     const columnMenuText = wrapper.text()
     expect(columnMenuText).toContain('API Key')
     expect(columnMenuText).toContain('ID')
-    expect(columnMenuText).toContain('Current Concurrency')
+    expect(columnMenuText).toContain('Concurrency (Current / Key Limit)')
     expect(columnMenuText).toContain('Rate Limit')
     expect(columnMenuText).toContain('Last Used IP')
     expect(columnMenuText).not.toContain('Name')
     expect(columnMenuText).not.toContain('Actions')
   })
 
-  it('renders the current concurrency value', async () => {
+  it('renders current concurrency and the absence of an additional key limit', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
+    expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3 / No extra limit')
+    expect(wrapper.get('[data-test="current-concurrency"] span').attributes('title')).toContain('user concurrency limit still applies')
+    wrapper.unmount()
+  })
+
+  it('renders current concurrency against the independent key limit', async () => {
+    listKeys.mockResolvedValueOnce({ items: [{ ...createApiKey(), concurrency: 8 }], total: 1, pages: 1 })
+    const wrapper = await mountView()
+    expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3 / 8')
+    wrapper.unmount()
+  })
+
+  it.each([0, 1, 100000])('creates a key with concurrency %i and resets the form to zero', async (concurrency) => {
+    getAvailableGroups.mockResolvedValue([{ id: 1, name: 'Claude', platform: 'anthropic' }])
+    vi.mocked(keysAPI.create).mockResolvedValue({ ...createApiKey(), concurrency })
+    const wrapper = await mountView()
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    expect(wrapper.get<HTMLInputElement>('[data-test="concurrency-input"]').element.value).toBe('0')
+    await wrapper.get('[data-tour="key-form-name"]').setValue('Limited key')
+    wrapper.findComponent('[data-tour="key-form-group"]').vm.$emit('update:modelValue', 1)
+    await wrapper.get('[data-test="concurrency-input"]').setValue(String(concurrency))
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    expect(vi.mocked(keysAPI.create).mock.calls[0][8]).toBe(concurrency)
+    await wrapper.get('[data-tour="keys-create-btn"]').trigger('click')
+    expect(wrapper.get<HTMLInputElement>('[data-test="concurrency-input"]').element.value).toBe('0')
+    wrapper.unmount()
+  })
+
+  it.each([0, 17, 100000])('edits an existing key concurrency cap to %i', async (concurrency) => {
+    const key = { ...createApiKey(), group_id: 1, concurrency: 8 }
+    listKeys.mockResolvedValueOnce({ items: [key], total: 1, pages: 1 })
+    updateKey.mockResolvedValue({ ...key, concurrency })
+    const wrapper = await mountView()
+    await getButtonByText(wrapper, 'common.edit').trigger('click')
+    expect(wrapper.get<HTMLInputElement>('[data-test="concurrency-input"]').element.value).toBe('8')
+    await wrapper.get('[data-test="concurrency-input"]').setValue(String(concurrency))
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    expect(updateKey).toHaveBeenCalledWith(key.id, expect.objectContaining({ concurrency }))
+    wrapper.unmount()
+  })
+
+  it.each(['', '-1', '1.5', '100001'])('rejects invalid concurrency %s before saving', async (value) => {
+    listKeys.mockResolvedValueOnce({ items: [{ ...createApiKey(), group_id: 1 }], total: 1, pages: 1 })
+    const wrapper = await mountView()
+    await getButtonByText(wrapper, 'common.edit').trigger('click')
+    await wrapper.get('[data-test="concurrency-input"]').setValue(value)
+    await wrapper.get('#key-form').trigger('submit')
+    await flushPromises()
+    expect(updateKey).not.toHaveBeenCalled()
+    expect(keysAPI.create).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('keys.invalidConcurrency')
+    wrapper.unmount()
   })
 
   it('marks current concurrency as sortable', async () => {
@@ -638,6 +698,36 @@ describe('user KeysView column settings', () => {
       await getButtonByText(wrapper, 'common.edit').trigger('click')
       expect(wrapper.find('[data-tour="key-form-provider"]').exists()).toBe(false)
       expect(optionIds(wrapper)).toHaveLength(12)
+    })
+  })
+
+  describe('usage stats loading', () => {
+    it('renders the key list without waiting for slow usage stats', async () => {
+      let resolveUsage!: (value: { stats: Record<string, unknown> }) => void
+      getDashboardApiKeysUsage.mockReturnValue(new Promise((resolve) => { resolveUsage = resolve }))
+      const wrapper = await mountView()
+
+      const table = wrapper.findComponent({ name: 'DataTable' })
+      expect(table.props('loading')).toBe(false)
+      expect(table.props('data')).toHaveLength(1)
+      expect(wrapper.find('[data-test="usage-pending"]').exists()).toBe(true)
+
+      resolveUsage({
+        stats: { 1: { api_key_id: 1, today_actual_cost: 0.5, total_actual_cost: 12.25 } },
+      })
+      await flushPromises()
+      expect(wrapper.find('[data-test="usage-pending"]').exists()).toBe(false)
+      expect(wrapper.get('[data-test="usage"]').text()).toContain('$12.2500')
+    })
+
+    it('stops showing usage placeholders when the usage request fails', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      getDashboardApiKeysUsage.mockRejectedValue(new Error('timeout'))
+      const wrapper = await mountView()
+
+      expect(wrapper.find('[data-test="usage-pending"]').exists()).toBe(false)
+      expect(wrapper.get('[data-test="usage"]').text()).toContain('$0.0000')
+      consoleError.mockRestore()
     })
   })
 })

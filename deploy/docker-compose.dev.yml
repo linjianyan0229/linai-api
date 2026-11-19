@@ -1,7 +1,7 @@
 # =============================================================================
-# Sub2API Docker Compose - Local Development Build
+# Sub2API Docker Compose - Development/Test Build
 # =============================================================================
-# Build from local source code for testing changes.
+# Build from the current source tree for Docker-based testing.
 #
 # Usage:
 #   cd deploy
@@ -15,7 +15,6 @@ services:
       dockerfile: Dockerfile
       args:
         NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}
-    container_name: sub2api-dev
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -52,9 +51,9 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
       # Local mainland-China development proxy. Containers cannot use
       # 127.0.0.1 for the host proxy, so default to Docker Desktop's host name.
-      - HTTP_PROXY=${SUB2API_DEV_HTTP_PROXY:-http://host.docker.internal:7897}
-      - HTTPS_PROXY=${SUB2API_DEV_HTTPS_PROXY:-http://host.docker.internal:7897}
-      - ALL_PROXY=${SUB2API_DEV_ALL_PROXY:-socks5://host.docker.internal:7897}
+      - HTTP_PROXY=${SUB2API_DEV_HTTP_PROXY-http://host.docker.internal:7897}
+      - HTTPS_PROXY=${SUB2API_DEV_HTTPS_PROXY-http://host.docker.internal:7897}
+      - ALL_PROXY=${SUB2API_DEV_ALL_PROXY-socks5://host.docker.internal:7897}
       - NO_PROXY=${SUB2API_DEV_NO_PROXY:-127.0.0.1,localhost,::1,postgres,redis,sub2api,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,.local}
       # Gateway values come from Compose .env or the shell.
       # Fallbacks mirror Sub2API backend defaults so omitted values preserve behavior.
@@ -62,6 +61,11 @@ services:
       - GATEWAY_OPENAI_COMPACT_MODEL=${GATEWAY_OPENAI_COMPACT_MODEL:-gpt-5.5}
       - SUB2API_IMAGES_MAIN_MODEL=${SUB2API_IMAGES_MAIN_MODEL:-gpt-5.6-luna}
       - GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT=${GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT:-0}
+      - GATEWAY_DISABLE_OPENAI_TRANSPORT_ERROR_COOLDOWN=${GATEWAY_DISABLE_OPENAI_TRANSPORT_ERROR_COOLDOWN:-false}
+      - GATEWAY_ANTIGRAVITY_INTERNAL500_IMAGE_COOLDOWN_SECONDS=${GATEWAY_ANTIGRAVITY_INTERNAL500_IMAGE_COOLDOWN_SECONDS:-120}
+      - GATEWAY_ANTIGRAVITY_INTERNAL500_TIER1_SECONDS=${GATEWAY_ANTIGRAVITY_INTERNAL500_TIER1_SECONDS:-1800}
+      - GATEWAY_ANTIGRAVITY_INTERNAL500_TIER2_SECONDS=${GATEWAY_ANTIGRAVITY_INTERNAL500_TIER2_SECONDS:-7200}
+      - GATEWAY_ANTIGRAVITY_INTERNAL500_DISABLE_ACCOUNT=${GATEWAY_ANTIGRAVITY_INTERNAL500_DISABLE_ACCOUNT:-true}
       - GATEWAY_OPENAI_WS_FORCE_HTTP=${GATEWAY_OPENAI_WS_FORCE_HTTP:-false}
       - GATEWAY_OPENAI_HTTP2_ENABLED=${GATEWAY_OPENAI_HTTP2_ENABLED:-true}
       - GATEWAY_OPENAI_HTTP2_ALLOW_PROXY_FALLBACK_TO_HTTP1=${GATEWAY_OPENAI_HTTP2_ALLOW_PROXY_FALLBACK_TO_HTTP1:-true}
@@ -123,7 +127,6 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    container_name: sub2api-postgres-dev
     restart: unless-stopped
     volumes:
       - ./postgres_data:/var/lib/postgresql/data:Z
@@ -144,7 +147,6 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: sub2api-redis-dev
     restart: unless-stopped
     volumes:
       - ./redis_data:/data:Z

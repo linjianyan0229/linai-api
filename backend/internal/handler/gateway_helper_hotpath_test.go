@@ -33,6 +33,10 @@ type helperConcurrencyCacheStub struct {
 	apiKeyTrackCalls    int
 	apiKeyReleaseCalls  int
 	apiKeyTrackIDs      []int64
+	apiKeySeq           []bool
+	apiKeyAcquireErr    error
+	apiKeyAcquireCalls  int
+	apiKeyLimit         int
 }
 
 func (s *helperConcurrencyCacheStub) AcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int, requestID string) (bool, error) {
@@ -107,6 +111,22 @@ func (s *helperConcurrencyCacheStub) TrackAPIKeySlot(ctx context.Context, apiKey
 	s.apiKeyTrackCalls++
 	s.apiKeyTrackIDs = append(s.apiKeyTrackIDs, apiKeyID)
 	return nil
+}
+
+func (s *helperConcurrencyCacheStub) AcquireAPIKeySlot(_ context.Context, _ int64, maxConcurrency int, _ string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.apiKeyAcquireCalls++
+	s.apiKeyLimit = maxConcurrency
+	if s.apiKeyAcquireErr != nil {
+		return false, s.apiKeyAcquireErr
+	}
+	if len(s.apiKeySeq) == 0 {
+		return false, nil
+	}
+	acquired := s.apiKeySeq[0]
+	s.apiKeySeq = s.apiKeySeq[1:]
+	return acquired, nil
 }
 
 func (s *helperConcurrencyCacheStub) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
@@ -326,7 +346,7 @@ func TestTryAcquireUserSlotForAPIKey_TracksAPIKeySlot(t *testing.T) {
 	concurrency := service.NewConcurrencyService(cache)
 	helper := NewConcurrencyHelper(concurrency, SSEPingFormatNone, 5*time.Millisecond)
 
-	release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 3, 77)
+	release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 3, 77, 0)
 	require.NoError(t, err)
 	require.True(t, acquired)
 	require.NotNil(t, release)
@@ -336,6 +356,82 @@ func TestTryAcquireUserSlotForAPIKey_TracksAPIKeySlot(t *testing.T) {
 	release()
 
 	require.Equal(t, 1, cache.userReleaseCalls)
+	require.Equal(t, 1, cache.apiKeyReleaseCalls)
+}
+
+func TestTryAcquireUserSlotForAPIKey_EnforcesBothLimits(t *testing.T) {
+	t.Run("key full releases user slot", func(t *testing.T) {
+		cache := &helperConcurrencyCacheStub{userSeq: []bool{true}, apiKeySeq: []bool{false}}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+		release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 10, 77, 1)
+		require.NoError(t, err)
+		require.False(t, acquired)
+		require.Nil(t, release)
+		require.Equal(t, 1, cache.userReleaseCalls)
+		require.Equal(t, 1, cache.apiKeyLimit)
+		require.Zero(t, cache.apiKeyReleaseCalls)
+		require.Zero(t, cache.apiKeyTrackCalls)
+	})
+	t.Run("user full cannot be bypassed by larger key limit", func(t *testing.T) {
+		cache := &helperConcurrencyCacheStub{userSeq: []bool{false}, apiKeySeq: []bool{true}}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+		release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 1, 77, 100)
+		require.NoError(t, err)
+		require.False(t, acquired)
+		require.Nil(t, release)
+		require.Zero(t, cache.apiKeyAcquireCalls)
+	})
+	t.Run("key limit still applies when user total is unlimited", func(t *testing.T) {
+		cache := &helperConcurrencyCacheStub{apiKeySeq: []bool{false}}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+		release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 0, 77, 1)
+		require.NoError(t, err)
+		require.False(t, acquired)
+		require.Nil(t, release)
+		require.Zero(t, cache.userAcquireCalls)
+		require.Equal(t, 1, cache.apiKeyAcquireCalls)
+	})
+	t.Run("key backend failure releases user slot", func(t *testing.T) {
+		redisErr := errors.New("key limiter unavailable")
+		cache := &helperConcurrencyCacheStub{userSeq: []bool{true}, apiKeyAcquireErr: redisErr}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+		release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 10, 77, 1)
+		require.ErrorIs(t, err, redisErr)
+		require.False(t, acquired)
+		require.Nil(t, release)
+		require.Equal(t, 1, cache.userReleaseCalls)
+	})
+	t.Run("releases both slots only once", func(t *testing.T) {
+		cache := &helperConcurrencyCacheStub{userSeq: []bool{true}, apiKeySeq: []bool{true}}
+		helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+		release, acquired, err := helper.TryAcquireUserSlotForAPIKey(context.Background(), 202, 10, 77, 1)
+		require.NoError(t, err)
+		require.True(t, acquired)
+		require.NotNil(t, release)
+		release()
+		release()
+		require.Equal(t, 1, cache.userReleaseCalls)
+		require.Equal(t, 1, cache.apiKeyReleaseCalls)
+	})
+}
+
+func TestAcquireUserSlotWithWait_RetriesKeyLimitWithoutHoldingUserSlot(t *testing.T) {
+	cache := &helperConcurrencyCacheStub{
+		userSeq: []bool{true, true}, apiKeySeq: []bool{false, true}, waitAllowed: true,
+	}
+	helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+	c, _ := newHelperTestContext(http.MethodPost, "/v1/responses")
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 77, Concurrency: 1})
+	streamStarted := false
+	release, err := helper.acquireUserSlotWithWaitTimeout(c, 202, 10, 2*time.Second, false, &streamStarted)
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	require.Equal(t, 2, cache.apiKeyAcquireCalls)
+	require.Equal(t, 1, cache.userReleaseCalls, "the failed key attempt must release its user slot")
+	require.Zero(t, cache.apiKeyTrackCalls, "a limited key must not be counted twice")
+	require.Equal(t, 1, cache.waitDecrementCalls)
+	release()
+	require.Equal(t, 2, cache.userReleaseCalls)
 	require.Equal(t, 1, cache.apiKeyReleaseCalls)
 }
 

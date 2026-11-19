@@ -15,7 +15,7 @@ type usageBillingRepository struct {
 	db *sql.DB
 }
 
-func NewUsageBillingRepository(_ *dbent.Client, sqlDB *sql.DB) service.UsageBillingRepository {
+func NewUsageBillingRepository(_ *dbent.Client, sqlDB *sql.DB) service.UsageBillingBatchRepository {
 	return &usageBillingRepository{db: sqlDB}
 }
 
@@ -214,7 +214,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	return nil
 }
 
-func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {
+func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD any) error {
 	const updateSQL = `
 		UPDATE user_subscriptions us
 		SET
@@ -415,9 +415,8 @@ func userExistsForBilling(ctx context.Context, tx *sql.Tx, userID int64) (bool, 
 	return true, nil
 }
 
-func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID int64, amount float64) (bool, error) {
-	var exhausted bool
-	err := tx.QueryRowContext(ctx, `
+// Shared by single-command and batched settlement so quota status transitions agree.
+const usageBillingAPIKeyQuotaUpdate = `
 		UPDATE api_keys
 		SET quota_used = quota_used + $1,
 			status = CASE
@@ -429,7 +428,11 @@ func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID 
 				ELSE status
 			END,
 			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
+		WHERE id = $2 AND deleted_at IS NULL`
+
+func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID int64, amount float64) (bool, error) {
+	var exhausted bool
+	err := tx.QueryRowContext(ctx, usageBillingAPIKeyQuotaUpdate+`
 		RETURNING quota > 0 AND quota_used >= quota AND quota_used - $1 < quota
 	`, amount, apiKeyID, service.StatusAPIKeyActive, service.StatusAPIKeyQuotaExhausted).Scan(&exhausted)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -441,7 +444,7 @@ func incrementUsageBillingAPIKeyQuota(ctx context.Context, tx *sql.Tx, apiKeyID 
 	return exhausted, nil
 }
 
-func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKeyID int64, cost float64) error {
+func incrementUsageBillingAPIKeyRateLimit(ctx context.Context, tx *sql.Tx, apiKeyID int64, cost any) error {
 	res, err := tx.ExecContext(ctx, `
 		UPDATE api_keys SET
 			usage_5h = CASE WHEN window_5h_start IS NOT NULL AND window_5h_start + INTERVAL '5 hours' <= NOW() THEN $1 ELSE usage_5h + $1 END,

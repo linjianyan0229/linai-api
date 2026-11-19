@@ -23,6 +23,7 @@ function createEntry(billingMode: PricingFormEntry['billing_mode'] = 'token'): P
     cache_read_price: null,
     fast_multiplier: null,
     flex_multiplier: null,
+    ultrafast_multiplier: null,
     reasoning_effort_multipliers: null,
     image_input_price: null,
     image_output_price: null,
@@ -149,7 +150,10 @@ describe('PricingEntryCard request multipliers', () => {
       found: true, input_price: 3e-6, output_price: 15e-6,
     })
     const wrapper = shallowMount(PricingEntryCard, {
-      props: { entry: { ...createEntry(), reasoning_effort_multipliers: { high: 0.5 } } },
+      props: {
+        entry: { ...createEntry(), reasoning_effort_multipliers: { high: 0.5 } },
+        onUpdate: (entry: PricingFormEntry) => { void wrapper.setProps({ entry }) },
+      },
     })
     wrapper.findComponent({ name: 'ModelTagInput' }).vm.$emit('update:models', ['example-model'])
     await flushPromises()

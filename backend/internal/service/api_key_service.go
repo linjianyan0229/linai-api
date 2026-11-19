@@ -46,6 +46,7 @@ var (
 )
 
 const (
+	MaxAPIKeyConcurrency         = 100000
 	MaxAPIKeyCredentialBytes     = 128
 	defaultAuthLookupConcurrency = 64
 	defaultNegativeAuthCacheSize = 16384
@@ -64,11 +65,12 @@ const (
 // 若编辑 Key 时无条件整行回写，并发累计的配额与限流计数就会被旧快照覆盖。
 // 因此调用方必须显式声明要改的列。
 type APIKeyUpdateFields struct {
-	Name      bool
-	Status    bool
-	Quota     bool
-	GroupID   bool
-	ExpiresAt bool
+	Name        bool
+	Concurrency bool
+	Status      bool
+	Quota       bool
+	GroupID     bool
+	ExpiresAt   bool
 	// QuotaUsed 仅供"重置配额用量"路径声明；常规计费走 IncrementQuotaUsed。
 	QuotaUsed bool
 	// RateLimits 覆盖 rate_limit_5h / _1d / _7d 三个阈值。
@@ -214,6 +216,7 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
+	Concurrency int      `json:"concurrency"` // 0 adds no limit to the user's total concurrency.
 	Name        string   `json:"name"`
 	GroupID     *int64   `json:"group_id"`
 	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
@@ -232,6 +235,7 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
+	Concurrency *int      `json:"concurrency"` // nil leaves unchanged; 0 removes the independent limit.
 	Name        *string   `json:"name"`
 	GroupID     *int64    `json:"group_id"`
 	Status      *string   `json:"status"`
@@ -259,6 +263,9 @@ func validateAPIKeyLimit(v float64) error {
 }
 
 func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
+	if err := validateAPIKeyConcurrency(req.Concurrency); err != nil {
+		return err
+	}
 	for _, v := range []float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d} {
 		if err := validateAPIKeyLimit(v); err != nil {
 			return err
@@ -271,12 +278,24 @@ func validateCreateAPIKeyRequest(req CreateAPIKeyRequest) error {
 }
 
 func validateUpdateAPIKeyRequest(req UpdateAPIKeyRequest) error {
+	if req.Concurrency != nil {
+		if err := validateAPIKeyConcurrency(*req.Concurrency); err != nil {
+			return err
+		}
+	}
 	for _, v := range []*float64{req.Quota, req.RateLimit5h, req.RateLimit1d, req.RateLimit7d} {
 		if v != nil {
 			if err := validateAPIKeyLimit(*v); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func validateAPIKeyConcurrency(concurrency int) error {
+	if concurrency < 0 || concurrency > MaxAPIKeyConcurrency {
+		return infraerrors.BadRequest("API_KEY_CONCURRENCY_INVALID", "API key concurrency must be between 0 and 100000")
 	}
 	return nil
 }
@@ -569,6 +588,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
+		Concurrency: req.Concurrency,
 		UserID:      userID,
 		Key:         key,
 		Name:        html.EscapeString(req.Name),
@@ -825,6 +845,10 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	originalStatus := apiKey.Status
 
 	// 更新字段
+	if req.Concurrency != nil {
+		apiKey.Concurrency = *req.Concurrency
+		fields.Concurrency = true
+	}
 	if req.Name != nil {
 		apiKey.Name = html.EscapeString(*req.Name)
 		fields.Name = true

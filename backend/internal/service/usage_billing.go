@@ -229,3 +229,19 @@ type UsageBillingRepository interface {
 	CaptureBatchImageBalance(ctx context.Context, cmd *BatchImageBalanceHoldCommand) (*BatchImageBalanceHoldResult, error)
 	ReleaseBatchImageBalance(ctx context.Context, cmd *BatchImageBalanceHoldCommand) (*BatchImageBalanceHoldResult, error)
 }
+
+// UsageBillingBatchOutcome is the outcome for one command in a committed batch.
+// Err is mutually exclusive with Result.
+type UsageBillingBatchOutcome struct {
+	Result *UsageBillingApplyResult
+	Err    error
+}
+
+// UsageBillingBatchRepository optionally combines charges for the same user.
+// Existing UsageBillingRepository implementations do not need batch support.
+type UsageBillingBatchRepository interface {
+	UsageBillingRepository
+	// ApplyBatch returns one outcome per command in input order. An error means
+	// no command took effect, except that an interrupted commit may be unknown.
+	ApplyBatch(ctx context.Context, cmds []*UsageBillingCommand) ([]UsageBillingBatchOutcome, error)
+}

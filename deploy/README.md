@@ -16,6 +16,9 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 |------|-------------|
 | `docker-compose.yml` | Docker Compose configuration (named volumes) |
 | `docker-compose.local.yml` | Docker Compose configuration (local directories, easy migration) |
+| `docker-compose.dev.yml` | Source-build Compose configuration for Docker testing |
+| `docker-compose.remote-test.yml` | Remote-only named-volume override for test data |
+| `docker-test-remote.ps1` | Upload the current worktree and build/test it on the remote Docker host |
 | `docker-deploy.sh` | **One-click Docker deployment script (recommended)** |
 | `apple-container.sh` | Native Apple `container` lifecycle script |
 | `APPLE_CONTAINER.md` | Apple `container` deployment and operations guide |
@@ -28,6 +31,32 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 | `DATAMANAGEMENTD_CN.md` | datamanagementd 部署与联动说明（中文） |
 | `config.example.yaml` | Example configuration file |
 | `EDGE_SECURITY.md` | Reverse proxy, CDN/WAF, trusted proxy, and ingress hardening guide |
+
+---
+
+## Remote Docker Test and Web Preview
+
+Use the PowerShell script from the repository root to upload the current
+worktree and build it on the configured remote Docker server:
+
+```powershell
+$env:LINAI_TEST_SSH_TARGET = "SSH username@ssh.instabox.sh"
+.\deploy\docker-test-remote.ps1
+```
+
+SSH uses port `2222`. The script starts an isolated Compose project, builds the
+frontend static assets in the Dockerfile, maps the web service to server port
+`3001`, checks its `/health` endpoint, and publishes an HTTPS preview URL. Open
+the `PREVIEW_URL` printed after the health check succeeds. The remote Compose
+override stores test data in dedicated Docker volumes. See
+[REMOTE_DOCKER_TEST.md](./REMOTE_DOCKER_TEST.md) for stop and restart
+instructions.
+
+Stop the test service, revoke its public URL, and keep its data volumes:
+
+```powershell
+.\deploy\docker-test-remote.ps1 -Stop
+```
 
 ---
 

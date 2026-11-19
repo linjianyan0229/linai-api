@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/maphash"
 	"math"
 	"regexp"
 	"sort"
@@ -60,13 +61,17 @@ type jsonRange struct {
 }
 
 type RequestBodyRef struct {
-	data []byte
+	data   []byte
+	parsed *gatewayRequestBodyState
 }
 
+// NewRequestBodyRef borrows immutable data. Callers must replace the body rather
+// than modify its backing storage while any request or attempt still borrows it.
 func NewRequestBodyRef(data []byte) *RequestBodyRef {
 	return &RequestBodyRef{data: data}
 }
 
+// Bytes returns a read-only view; use Replace to invalidate parsed state.
 func (b *RequestBodyRef) Bytes() []byte {
 	if b == nil {
 		return nil
@@ -86,6 +91,55 @@ func (b *RequestBodyRef) Replace(data []byte) {
 		return
 	}
 	b.data = data
+	// Even replacing with the same slice invalidates the snapshot. Callers may
+	// have reused storage after releasing its previous immutable view.
+	b.parsed = nil
+}
+
+// gatewayRequestBodySeed keys body fingerprints for this process only.
+var gatewayRequestBodySeed = maphash.MakeSeed()
+
+// gatewayRequestBodyState is an immutable snapshot of a successful parse. It
+// owns scalar strings and stores only offsets for large fields, so sharing it
+// between attempts cannot retain an old request body or mutable request state.
+type gatewayRequestBodyState struct {
+	model, metadataUserID, outputEffort, speed string
+	stream, hasSystem, thinkingEnabled         bool
+	maxTokens                                  int
+	protocol                                   string
+	systemRange, messagesRange, inputRange     jsonRange
+	fingerprint                                uint64
+}
+
+func (p *ParsedRequest) saveBodyState() {
+	p.Body.parsed = &gatewayRequestBodyState{
+		model: p.Model, metadataUserID: p.MetadataUserID, outputEffort: p.OutputEffort, speed: p.Speed,
+		stream: p.Stream, hasSystem: p.HasSystem, thinkingEnabled: p.ThinkingEnabled, maxTokens: p.MaxTokens,
+		protocol: p.protocol, systemRange: p.systemRange, messagesRange: p.messagesRange, inputRange: p.inputRange,
+		fingerprint: maphash.Bytes(gatewayRequestBodySeed, p.Body.Bytes()),
+	}
+}
+
+func (p *ParsedRequest) restoreBodyState(state *gatewayRequestBodyState) {
+	p.Model, p.MetadataUserID, p.OutputEffort, p.Speed = state.model, state.metadataUserID, state.outputEffort, state.speed
+	p.Stream, p.HasSystem, p.ThinkingEnabled, p.MaxTokens = state.stream, state.hasSystem, state.thinkingEnabled, state.maxTokens
+	p.protocol = state.protocol
+	p.systemRange, p.messagesRange, p.inputRange = state.systemRange, state.messagesRange, state.inputRange
+}
+
+func (p *ParsedRequest) reusableBodyState(data []byte) *gatewayRequestBodyState {
+	if p.Body == nil || p.Body.parsed == nil || p.Body.parsed.protocol != p.protocol {
+		return nil
+	}
+	current := p.Body.Bytes()
+	// Identity alone would trust the immutable borrowing contract. The content
+	// fingerprint also catches in-place edits of shared storage, which then
+	// reparse as before; it costs one hash pass instead of a full parse.
+	if len(data) == 0 || len(data) != len(current) || &data[0] != &current[0] ||
+		maphash.Bytes(gatewayRequestBodySeed, data) != p.Body.parsed.fingerprint {
+		return nil
+	}
+	return p.Body.parsed
 }
 
 func missingJSONRange() jsonRange {
@@ -180,13 +234,16 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 	if parsed == nil || parsed.Body == nil {
 		return fmt.Errorf("empty request body")
 	}
+	parsed.Body.parsed = nil
 
 	bodyBytes := parsed.Body.Bytes()
 	if !gjson.ValidBytes(bodyBytes) {
 		return DescribeInvalidJSON(bodyBytes)
 	}
 
-	// 只在当前函数内零拷贝读取 JSON 字段；ReplaceBody 后必须重新进入本函数刷新派生状态。
+	// Zero-copy JSON reads stay local to parsing. Persisted scalar strings must
+	// own their storage: an unescaped gjson string otherwise retains the complete
+	// request buffer when copied into queued billing work. Raw ranges stay zero-copy.
 	jsonStr := *(*string)(unsafe.Pointer(&bodyBytes))
 	clearGatewayRequestDerivedState(parsed)
 	parsed.protocol = protocol
@@ -196,7 +253,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		if modelResult.Type != gjson.String {
 			return fmt.Errorf("invalid model field type")
 		}
-		parsed.Model = modelResult.String()
+		parsed.Model = strings.Clone(modelResult.String())
 		if protocol == domain.PlatformAnthropic {
 			normalizedModel := normalizeClaudeCodeLongContextModel(parsed.Model)
 			if normalizedModel != parsed.Model {
@@ -220,15 +277,15 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 		parsed.Stream = streamResult.Bool()
 	}
 
-	parsed.MetadataUserID = gjson.Get(jsonStr, "metadata.user_id").String()
+	parsed.MetadataUserID = strings.Clone(gjson.Get(jsonStr, "metadata.user_id").String())
 
 	thinkingType := gjson.Get(jsonStr, "thinking.type").String()
 	parsed.ThinkingEnabled = thinkingType == "enabled" || thinkingType == "adaptive" || thinkingType == "between_tools" ||
 		(protocol == domain.PlatformAnthropic && isClaude55SignedThinkingModel(parsed.Model))
 
-	parsed.OutputEffort = strings.TrimSpace(gjson.Get(jsonStr, "output_config.effort").String())
+	parsed.OutputEffort = strings.Clone(strings.TrimSpace(gjson.Get(jsonStr, "output_config.effort").String()))
 	if protocol == domain.PlatformAnthropic {
-		parsed.Speed = strings.ToLower(strings.TrimSpace(gjson.Get(jsonStr, "speed").String()))
+		parsed.Speed = strings.Clone(strings.ToLower(strings.TrimSpace(gjson.Get(jsonStr, "speed").String())))
 	}
 
 	maxTokensResult := gjson.Get(jsonStr, "max_tokens")
@@ -241,6 +298,7 @@ func parseGatewayRequestCurrentBody(parsed *ParsedRequest, protocol string) erro
 	}
 
 	setGatewayRequestRanges(parsed, protocol, jsonStr)
+	parsed.saveBodyState()
 	return nil
 }
 
@@ -418,6 +476,13 @@ func (p *ParsedRequest) CloneForBody(body []byte) (*ParsedRequest, error) {
 	clone := *p
 	clone.Body = NewRequestBodyRef(body)
 	clone.OnUpstreamAccepted = nil
+	if state := p.reusableBodyState(body); state != nil {
+		clone.Body.parsed = state
+		// Restore derived fields just as reparsing would; callers can have
+		// temporarily overridden exported fields such as Model for routing.
+		clone.restoreBodyState(state)
+		return &clone, nil
+	}
 	if err := refreshGatewayRequestRanges(&clone, clone.protocol); err != nil {
 		return nil, err
 	}
@@ -428,6 +493,10 @@ func (p *ParsedRequest) CloneForBody(body []byte) (*ParsedRequest, error) {
 func (p *ParsedRequest) ReplaceBody(data []byte) error {
 	if p == nil {
 		return fmt.Errorf("parse request: empty request")
+	}
+	if state := p.reusableBodyState(data); state != nil {
+		p.restoreBodyState(state)
+		return nil
 	}
 	if p.Body == nil {
 		p.Body = NewRequestBodyRef(data)
@@ -567,10 +636,10 @@ func StripEmptyTextBlocks(body []byte) []byte {
 	return out
 }
 
-// isClaude55SignedThinkingModel identifies models whose default thinking mode
+// isClaude55SignedThinkingModel identifies models (including Fable/Mythos 5.2) whose default thinking mode
 // requires signed history to survive protocol conversion and request filtering.
 func isClaude55SignedThinkingModel(model string) bool {
-	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
+	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model) || claude.IsFable52(model) || claude.IsMythos52(model)
 }
 
 // validateClaude55Request rejects settings that the upstream cannot honor.
@@ -581,6 +650,7 @@ func validateClaude55Request(body []byte, model string) error {
 	}
 	isSonnet55 := claude.IsSonnet55(model)
 	isHaiku55 := claude.IsHaiku55(model)
+	isClaude52 := claude.IsFable52(model) || claude.IsMythos52(model)
 	thinkingType := gjson.GetBytes(body, "thinking.type").String()
 	switch thinkingType {
 	case "disabled", "enabled":
@@ -599,13 +669,13 @@ func validateClaude55Request(body []byte, model string) error {
 		if isSonnet55 {
 			return fmt.Errorf("claude-sonnet-5-5 requires adaptive thinking or thinking.type=between_tools; omit thinking or use one of those modes")
 		}
-		return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort")
+		return fmt.Errorf("%s requires adaptive thinking; omit thinking or use thinking.type=adaptive and output_config.effort", model)
 	case "between_tools":
 		if !isSonnet55 {
 			if isHaiku55 {
 				return fmt.Errorf("claude-haiku-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported (use thinking.type=disabled at high effort or below)")
 			}
-			return fmt.Errorf("claude-opus-5-5 requires adaptive thinking; thinking.type=between_tools is unsupported")
+			return fmt.Errorf("%s requires adaptive thinking; thinking.type=between_tools is unsupported", model)
 		}
 		effort := gjson.GetBytes(body, "output_config.effort").String()
 		if effort == "xhigh" || effort == "max" {
@@ -617,7 +687,7 @@ func validateClaude55Request(body []byte, model string) error {
 			}
 		}
 	}
-	modelName := "claude-opus-5-5"
+	modelName := model
 	if isSonnet55 {
 		modelName = "claude-sonnet-5-5"
 	}
@@ -635,19 +705,19 @@ func validateClaude55Request(body []byte, model string) error {
 			return fmt.Errorf("%s does not support forced tool_choice; use auto or none", modelName)
 		}
 	}
-	if isSonnet55 || isHaiku55 {
+	if isSonnet55 || isHaiku55 || isClaude52 {
 		if temperature := gjson.GetBytes(body, "temperature"); temperature.Exists() && (temperature.Type != gjson.Number || temperature.Float() != 1) {
 			return fmt.Errorf("%s does not support non-default temperature", modelName)
 		}
 		// Haiku 5.5 只接受显式 top_p=0.99；保留 Sonnet 5.5 既有的区间策略。
 		if topP := gjson.GetBytes(body, "top_p"); topP.Exists() && (topP.Type != gjson.Number ||
-			(isHaiku55 && topP.Float() != 0.99) || (isSonnet55 && (topP.Float() < 0.99 || topP.Float() > 1))) {
+			((isHaiku55 || isClaude52) && topP.Float() != 0.99) || (isSonnet55 && (topP.Float() < 0.99 || topP.Float() > 1))) {
 			return fmt.Errorf("%s does not support non-default top_p", modelName)
 		}
 		if gjson.GetBytes(body, "top_k").Exists() {
 			return fmt.Errorf("%s does not support top_k", modelName)
 		}
-		if isHaiku55 && gjson.GetBytes(body, "temperature").Exists() && gjson.GetBytes(body, "top_p").Exists() {
+		if (isHaiku55 || isClaude52) && gjson.GetBytes(body, "temperature").Exists() && gjson.GetBytes(body, "top_p").Exists() {
 			return fmt.Errorf("%s does not allow temperature and top_p together; omit both", modelName)
 		}
 	}

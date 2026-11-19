@@ -38,7 +38,7 @@ var (
 	// cache_creation_input_token_cost_above_1hr_above_200k_tokens 等）。
 	// 组 1 为基础价字段名主干，组 2 为 1h 缓存时长段（可为空），组 3 为服务档后缀（可为空）。
 	cacheTierPricePattern = regexp.MustCompile(`^(cache_(?:creation|read)_input_token_cost)(_above_1hr)?_above_\d+k_tokens((?:_[a-z]+)?)$`)
-	// Official GPT Image 2.5 token rates (2026-09-08):
+	// Official GPT Image 2.5 / 2.6 token rates (verified 2026-11-06):
 	// https://developers.openai.com/api/docs/pricing#image-generation-models
 	openAIGPTImage25FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:       5e-06,
@@ -83,6 +83,23 @@ var (
 		CacheCreationInputTokenCostPriority: 2.5e-6,
 		CacheReadInputTokenCost:             0.05e-6,
 		CacheReadInputTokenCostPriority:     0.1e-6,
+		LongContextInputTokenThreshold:      272_000,
+		LongContextInputCostMultiplier:      2,
+		LongContextOutputCostMultiplier:     1.5,
+		SupportsServiceTier:                 true,
+		LiteLLMProvider:                     "openai",
+		Mode:                                "chat",
+		SupportsPromptCaching:               true,
+	}
+	openAIGPT62AstraFallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:                   8e-6,
+		InputCostPerTokenPriority:           16e-6,
+		OutputCostPerToken:                  40e-6,
+		OutputCostPerTokenPriority:          80e-6,
+		CacheCreationInputTokenCost:         10e-6,
+		CacheCreationInputTokenCostPriority: 20e-6,
+		CacheReadInputTokenCost:             0.4e-6,
+		CacheReadInputTokenCostPriority:     0.8e-6,
 		LongContextInputTokenThreshold:      272_000,
 		LongContextInputCostMultiplier:      2,
 		LongContextOutputCostMultiplier:     1.5,
@@ -142,6 +159,14 @@ var (
 		Mode:                                "chat",
 		SupportsPromptCaching:               true,
 	}
+	// Fable/Mythos 5.2 share the official price card, including both cache TTLs:
+	// https://platform.claude.com/docs/en/about-claude/pricing
+	claude52FallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken: 8e-6, OutputCostPerToken: 40e-6,
+		CacheCreationInputTokenCost: 10e-6, CacheCreationInputTokenCostAbove1hr: 16e-6,
+		CacheReadInputTokenCost: 0.2e-6,
+		LiteLLMProvider:         "anthropic", Mode: "chat", SupportsPromptCaching: true,
+	}
 	claudeOpus55FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken: 4e-6, OutputCostPerToken: 20e-6,
 		CacheCreationInputTokenCost: 5e-6, CacheCreationInputTokenCostAbove1hr: 8e-6,
@@ -153,7 +178,7 @@ var (
 	claudeSonnet55FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken: 2e-6, OutputCostPerToken: 10e-6,
 		CacheCreationInputTokenCost: 2.5e-6, CacheCreationInputTokenCostAbove1hr: 4e-6,
-		CacheReadInputTokenCost: 0.2e-6,
+		CacheReadInputTokenCost: 0.1e-6,
 		LiteLLMProvider:         "anthropic", Mode: "chat", SupportsPromptCaching: true,
 	}
 	claudeHaiku55FallbackPricing = &LiteLLMModelPricing{
@@ -1412,7 +1437,7 @@ func isAntigravityThinkingTierAlias(model string) bool {
 // the published token rate, so this keeps -high/-low/-medium and -tiered
 // requests on the corresponding base model's price card.
 func normalizeGeminiThinkingTierAlias(model string) string {
-	for _, baseModel := range []string{"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-argon"} {
+	for _, baseModel := range []string{"gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash", "gemini-4-argon", "gemini-4-carbon"} {
 		for _, tier := range []string{"-high", "-low", "-medium", "-tiered"} {
 			if model == baseModel+tier {
 				return baseModel
@@ -1451,6 +1476,19 @@ func (s *PricingService) extractBaseName(model string) string {
 // matchByModelFamily 基于模型系列匹配
 func (s *PricingService) matchByModelFamily(model string) *LiteLLMModelPricing {
 	model = normalizeAntigravityClaudeTierAlias(model)
+	var claude52Model string
+	switch {
+	case claude.IsFable52(model):
+		claude52Model = "claude-fable-5-2"
+	case claude.IsMythos52(model):
+		claude52Model = "claude-mythos-5-2"
+	}
+	if claude52Model != "" {
+		if pricing, ok := s.pricingData[claude52Model]; ok {
+			return pricing
+		}
+		return claude52FallbackPricing
+	}
 	if claude.IsOpus55(model) {
 		if pricing, ok := s.pricingData["claude-opus-5-5"]; ok {
 			return pricing
@@ -1606,6 +1644,15 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		}
 		return openAIGPT61TerraFallbackPricing
 	}
+	if base := openai.GPT62ModelID(model); base != "" {
+		if pricing, ok := s.pricingData[base]; ok {
+			return pricing
+		}
+		if base == "gpt-6.2-sol" {
+			return openAIGPT61SolFallbackPricing // Same published token rates.
+		}
+		return openAIGPT62AstraFallbackPricing
+	}
 	if openai.IsGPT61SolModelSpelling(model) {
 		if pricing, ok := s.pricingData["gpt-6.1-sol"]; ok {
 			return pricing
@@ -1688,8 +1735,11 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		return openAIGPT54FallbackPricing
 	}
 
-	// Remote price mirrors can lag new releases. Never bill GPT Image 2.5
+	// Remote price mirrors can lag new releases. Never bill GPT Image 2.5 / 2.6
 	// using the older image model's rates when its entry is absent.
+	if model == "gpt-image-2.6-flare" || model == "gpt-image-2.6-sunburst" {
+		return openAIGPTImage25FallbackPricing
+	}
 	for _, imageModel := range []string{"gpt-image-2.5-flare", "gpt-image-2.5-sunburst"} {
 		if model == imageModel || model == imageModel+"-2026-09-08" {
 			return openAIGPTImage25FallbackPricing

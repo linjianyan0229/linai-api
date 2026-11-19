@@ -42,6 +42,11 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 	if !h.checkSecurityAuditBeforeSubmit(c, &req) {
 		return
 	}
+	release, acquired := h.acquireSubmitUserSlot(c)
+	if !acquired {
+		return
+	}
+	defer release()
 	if sessionID := service.ExtractClientSessionID(c); sessionID != "" {
 		req.SessionID = &sessionID
 	}
@@ -51,6 +56,31 @@ func (h *BatchImageHandler) Submit(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, got)
+}
+
+// Batch concurrency covers this submission request, including provider upload;
+// queued provider jobs are not active gateway requests after submission returns.
+func (h *BatchImageHandler) acquireSubmitUserSlot(c *gin.Context) (func(), bool) {
+	apiKey, ok := middleware.GetAPIKeyFromContext(c)
+	if !ok || apiKey == nil {
+		batchImageError(c, infraerrors.New(http.StatusUnauthorized, "API_KEY_REQUIRED", "API key is required"))
+		return nil, false
+	}
+	if h == nil || h.openAI == nil || h.openAI.concurrencyHelper == nil || h.openAI.concurrencyHelper.concurrencyService == nil {
+		if apiKey.Concurrency > 0 {
+			batchImageError(c, infraerrors.New(http.StatusServiceUnavailable, "CONCURRENCY_UNAVAILABLE", "Concurrency service unavailable"))
+			return nil, false
+		}
+		return func() {}, true
+	}
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		batchImageError(c, infraerrors.New(http.StatusInternalServerError, "USER_CONTEXT_REQUIRED", "User context not found"))
+		return nil, false
+	}
+	reqLog := requestLogger(c, "handler.batch_image.concurrency", zap.Int64("api_key_id", apiKey.ID))
+	var streamStarted bool
+	return h.openAI.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
 }
 
 func (h *BatchImageHandler) checkSecurityAuditBeforeSubmit(c *gin.Context, req *service.BatchImageSubmitRequest) bool {

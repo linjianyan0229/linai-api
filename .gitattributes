@@ -20,3 +20,8 @@ backend/migrations/*.sql text eol=lf
 
 # Dockerfile
 Dockerfile text eol=lf
+Dockerfile.* text eol=lf
+
+# Deployment text is packaged directly from Windows for Linux Docker validation.
+deploy/Caddyfile text eol=lf
+.env.example text eol=lf

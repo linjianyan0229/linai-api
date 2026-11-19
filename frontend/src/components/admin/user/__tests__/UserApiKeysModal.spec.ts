@@ -38,6 +38,21 @@ async function switchUser(wrapper: Awaited<ReturnType<typeof open>>) {
 }
 
 describe('user API key loading', () => {
+  it('shows current usage and the independent per-key concurrency cap', async () => {
+    const response = keys(1, 'limited-key')
+    getKeys.mockResolvedValue({ items: [{ ...response.items[0], current_concurrency: 2, concurrency: 5 }] })
+    const wrapper = await open(); await flushPromises()
+    expect(wrapper.get('[data-test="key-concurrency"]').text()).toBe('keys.concurrencyColumn: 2 / 5')
+    expect(wrapper.get('[data-test="key-concurrency"]').attributes('title')).toBe('keys.concurrencyLimitHint')
+  })
+
+  it.each([0, undefined])('shows no additional limit for concurrency %s', async (concurrency) => {
+    const response = keys(1, 'uncapped-key')
+    getKeys.mockResolvedValue({ items: [{ ...response.items[0], current_concurrency: 1, concurrency }] })
+    const wrapper = await open(); await flushPromises()
+    expect(wrapper.get('[data-test="key-concurrency"]').text()).toBe('keys.concurrencyColumn: 1 / keys.noAdditionalConcurrencyLimit')
+  })
+
   it('does not display the previous user keys when the next load fails', async () => {
     getKeys.mockResolvedValueOnce(keys(1, 'first-user-key')).mockRejectedValueOnce(new Error('unavailable'))
     const wrapper = await open(); await flushPromises()
