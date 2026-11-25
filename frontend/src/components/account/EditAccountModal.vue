@@ -226,15 +226,11 @@
           <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
-          <input
+          <APIKeyPoolInput
             v-model="editApiKey"
-            type="password"
-            class="input font-mono"
-            autocomplete="new-password"
-            data-1p-ignore
-            data-lpignore="true"
-            data-bwignore="true"
+            v-model:mode="editAPIKeyWriteMode"
+            editing
+            :stored-count="configuredAPIKeyCount(account)"
             :placeholder="
               account.platform === 'openai'
                 ? 'sk-proj-...'
@@ -247,7 +243,6 @@
                       : 'sk-ant-...'
             "
           />
-          <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
@@ -3093,6 +3088,8 @@ import {
 } from '@/utils/geminiExplicitCache'
 import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
+import APIKeyPoolInput from '@/components/account/APIKeyPoolInput.vue'
+import { applyAPIKeyInput, configuredAPIKeyCount, parseAPIKeyInput, type APIKeyWriteMode } from '@/components/account/apiKeyPool'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
 import {
   applyAntigravityProjectID,
@@ -3314,6 +3311,7 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const editAPIKeyWriteMode = ref<APIKeyWriteMode>('append')
 
 // ── 国产供应商（Kimi / Zhipu / DeepSeek）account_mode / api_protocol 编辑 ──
 // account_mode 决定额度/余额监控路径，api_protocol 决定转发端点与格式；
@@ -4696,6 +4694,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     selectedErrorCodes.value = []
   }
   editApiKey.value = ''
+  editAPIKeyWriteMode.value = 'append'
 }
 
 async function loadTLSProfiles() {
@@ -5382,16 +5381,11 @@ const handleSubmit = async () => {
         }
       }
 
-      // Handle API key
-      // 后端响应已脱敏：currentCredentials 不会再包含 api_key 原文。
-      // 用户填入新值则覆盖；留空时优先看 credentials_status.has_api_key；
-      // 若后端尚未升级（无 credentials_status），回退读旧结构 currentCredentials.api_key。
-      // 两者都无才报错。
-      const hasExistingApiKey =
-        props.account.credentials_status?.has_api_key ?? Boolean(currentCredentials.api_key)
-      if (editApiKey.value.trim()) {
-        newCredentials.api_key = editApiKey.value.trim()
-      } else if (!hasExistingApiKey) {
+      // Empty input preserves redacted credentials; non-empty input explicitly
+      // appends to or replaces the stored pool on the server.
+      if (parseAPIKeyInput(editApiKey.value).length > 0) {
+        applyAPIKeyInput(newCredentials, editApiKey.value, editAPIKeyWriteMode.value)
+      } else if (configuredAPIKeyCount(props.account) === 0) {
         appStore.showError(t('admin.accounts.apiKeyIsRequired'))
         return
       }

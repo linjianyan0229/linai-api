@@ -73,6 +73,17 @@ func scopedAccountFieldPermissions(fields map[string]json.RawMessage, create boo
 					permissions = append(permissions, "accounts.models.write")
 					continue
 				}
+				if name == "api_keys" || name == "api_keys_mode" {
+					var credential any
+					if json.Unmarshal(value, &credential) != nil {
+						return nil, infraerrors.BadRequest("SCOPED_ACCOUNT_CREDENTIALS", "凭证值格式无效")
+					}
+					if _, err := NormalizeAccountAPIKeyCredentials(AccountTypeAPIKey, nil, map[string]any{name: credential}); err != nil {
+						return nil, err
+					}
+					permissions = append(permissions, "accounts.credentials")
+					continue
+				}
 				var text string
 				if json.Unmarshal(value, &text) != nil || len(text) > 65536 {
 					return nil, infraerrors.BadRequest("SCOPED_ACCOUNT_CREDENTIALS", "凭证值格式无效")
@@ -257,12 +268,10 @@ func (s *adminServiceImpl) ScopedAdminWrite(ctx context.Context, id int64, actio
 		}
 		// 受限更新按已授权字段补丁合并，避免上游完整编辑语义删除未授予的连接配置。
 		if input.Credentials != nil {
-			merged := maps.Clone(a.Credentials)
-			if merged == nil {
-				merged = make(map[string]any)
+			input.Credentials, e = mergeScopedAccountCredentials(a, input.Credentials)
+			if e != nil {
+				return nil, e
 			}
-			maps.Copy(merged, input.Credentials)
-			input.Credentials = merged
 		}
 		updated, e := s.UpdateAccount(txctx, id, &UpdateAccountInput{ProxyID: input.ProxyID, Name: input.Name, Notes: input.Notes, Credentials: input.Credentials, Concurrency: input.Concurrency, Priority: input.Priority, LoadFactor: input.LoadFactor, Status: input.Status, GroupIDs: input.GroupIDs, ExpiresAt: input.ExpiresAt, AutoPauseOnExpired: input.AutoPause})
 		if e != nil {
@@ -274,6 +283,23 @@ func (s *adminServiceImpl) ScopedAdminWrite(ctx context.Context, id int64, actio
 		return updated, nil
 	})
 	return result, err
+}
+
+func mergeScopedAccountCredentials(account *Account, patch map[string]any) (map[string]any, error) {
+	// Apply pool operations to the original patch before preserving other fields.
+	// Otherwise an inherited api_keys field would override an explicit api_key,
+	// and an append would accidentally append the old pool twice.
+	normalized, err := NormalizeAccountAPIKeyCredentials(account.Type, account.Credentials, patch)
+	if err != nil {
+		return nil, err
+	}
+	merged := maps.Clone(account.Credentials)
+	if merged == nil {
+		merged = make(map[string]any)
+	}
+	maps.Copy(merged, normalized)
+	delete(merged, "api_keys_mode")
+	return merged, nil
 }
 
 // scopedAdminTransaction 锁住账户行，分组更改和外部操作均须在重新验权之后执行。

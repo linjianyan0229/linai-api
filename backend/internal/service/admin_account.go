@@ -414,6 +414,10 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	if input.Platform == PlatformTypeSafe && input.Type != AccountTypeAPIKey {
 		return nil, errors.New("typesafe accounts only support apikey credentials")
 	}
+	credentials, err := NormalizeAccountAPIKeyCredentials(input.Type, nil, input.Credentials)
+	if err != nil {
+		return nil, err
+	}
 	// Probe/session state is system-managed. New accounts always start with automatic refresh disabled.
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
 	delete(accountExtra, UpstreamBillingRateSyncEnabledExtraKey)
@@ -429,7 +433,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 		Notes:       normalizeAccountNotes(input.Notes),
 		Platform:    input.Platform,
 		Type:        input.Type,
-		Credentials: input.Credentials,
+		Credentials: credentials,
 		Extra:       accountExtra,
 		ProxyID:     input.ProxyID,
 		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
@@ -652,7 +656,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	} else if len(input.Credentials) > 0 {
 		// 敏感子键采用"incoming 没提供就保留"的合并语义：前端响应已脱敏，
 		// 全对象 PUT 编辑时不会再带回 token，避免覆盖时清空已有凭证。
-		account.Credentials = MergePreservingSensitiveCreds(account.Credentials, input.Credentials)
+		credentials, err := NormalizeAccountAPIKeyCredentials(account.Type, account.Credentials, input.Credentials)
+		if err != nil {
+			return nil, err
+		}
+		account.Credentials = credentials
 		// 校验并规范化请求头覆写配置（header 名小写化、格式检查）
 		if err := NormalizeHeaderOverrideCredentials(account.Credentials); err != nil {
 			return nil, err
@@ -662,6 +670,11 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		// Strip SSO/password residue that must never sit next to OAuth tokens.
 		account.Credentials = SanitizeStoredCredentials(account.Platform, account.Credentials)
+	}
+	if account.Type != AccountTypeAPIKey {
+		if _, hasPool := account.Credentials["api_keys"]; hasPool {
+			return nil, invalidAccountAPIKeys("api_keys can only be configured on apikey accounts")
+		}
 	}
 	// Extra 使用 map：需要区分“未提供(nil)”与“显式清空({})”。
 	// 关闭配额限制时前端会删除 quota_* 键并提交 extra:{}，此时也必须落库。
@@ -1117,6 +1130,53 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	if input.Credentials != nil {
 		input.Credentials = SanitizeStoredCredentials("", input.Credentials)
 	}
+	// A pool append depends on each account's existing secrets. Do not apply one
+	// shared pool through the general JSONB merge and overwrite distinct pools.
+	apiKeyUpdates := make(map[int64]map[string]any)
+	_, hasAPIKeys := input.Credentials["api_keys"]
+	_, hasAPIKey := input.Credentials["api_key"]
+	_, hasAPIKeysMode := input.Credentials["api_keys_mode"]
+	identityCredentialsChanged := updatesUpstreamBillingProbeIdentity(input.Credentials)
+	needsPerAccountPoolUpdate := hasAPIKeys || hasAPIKeysMode
+	if hasAPIKey {
+		for _, account := range cachedTargets {
+			if account != nil {
+				if _, hasPool := account.Credentials["api_keys"]; hasPool {
+					needsPerAccountPoolUpdate = true
+				}
+			}
+		}
+	}
+	if needsPerAccountPoolUpdate {
+		for _, accountID := range input.AccountIDs {
+			account, ok := targetsByID[accountID]
+			if !ok {
+				return nil, ErrAccountNotFound
+			}
+			credentials, err := NormalizeAccountAPIKeyCredentials(account.Type, account.Credentials, input.Credentials)
+			if err != nil {
+				return nil, err
+			}
+			updates := make(map[string]any, 2)
+			if value, exists := credentials["api_key"]; exists {
+				updates["api_key"] = value
+			}
+			if value, exists := credentials["api_keys"]; exists {
+				updates["api_keys"] = value
+			}
+			apiKeyUpdates[accountID] = updates
+		}
+		input.Credentials = maps.Clone(input.Credentials)
+		delete(input.Credentials, "api_key")
+		delete(input.Credentials, "api_keys")
+		delete(input.Credentials, "api_keys_mode")
+	} else if hasAPIKey {
+		credentials, err := NormalizeAccountAPIKeyCredentials(AccountTypeAPIKey, nil, input.Credentials)
+		if err != nil {
+			return nil, err
+		}
+		input.Credentials = credentials
+	}
 
 	// Prepare bulk updates for columns and JSONB fields.
 	repoUpdates := AccountBulkUpdate{
@@ -1134,7 +1194,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			repoUpdates.Extra[UpstreamBillingRateSyncEnabledExtraKey] = false
 		}
 	}
-	if updatesUpstreamBillingProbeIdentity(input.Credentials) || input.ProxyID != nil {
+	if identityCredentialsChanged || input.ProxyID != nil {
 		if repoUpdates.Extra == nil {
 			repoUpdates.Extra = make(map[string]any)
 		}
@@ -1194,6 +1254,15 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	// Handle group bindings per account (requires individual operations).
 	for _, accountID := range input.AccountIDs {
 		entry := BulkUpdateAccountResult{AccountID: accountID}
+		if credentials, ok := apiKeyUpdates[accountID]; ok {
+			if _, err := s.accountRepo.BulkUpdate(ctx, []int64{accountID}, AccountBulkUpdate{Credentials: credentials}); err != nil {
+				entry.Error = err.Error()
+				result.Failed++
+				result.FailedIDs = append(result.FailedIDs, accountID)
+				result.Results = append(result.Results, entry)
+				continue
+			}
+		}
 
 		if input.GroupIDs != nil {
 			if err := s.accountRepo.BindGroups(ctx, accountID, *input.GroupIDs); err != nil {
@@ -1216,7 +1285,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 }
 
 func updatesUpstreamBillingProbeIdentity(credentials map[string]any) bool {
-	for _, key := range []string{"api_key", "base_url", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
+	for _, key := range []string{"api_key", "api_keys", "base_url", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
 		if _, ok := credentials[key]; ok {
 			return true
 		}
@@ -1232,7 +1301,7 @@ func upstreamBillingProbeIdentity(account *Account) map[string]any {
 	if account.ProxyID != nil {
 		identity["proxy_id"] = *account.ProxyID
 	}
-	for _, key := range []string{"api_key", "base_url", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
+	for _, key := range []string{"api_key", "api_keys", "base_url", credKeyHeaderOverrideEnabled, credKeyHeaderOverrides} {
 		if value, ok := account.Credentials[key]; ok {
 			identity[key] = value
 		}

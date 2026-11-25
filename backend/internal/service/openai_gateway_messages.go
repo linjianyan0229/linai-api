@@ -33,6 +33,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	promptCacheKey string,
 	defaultMappedModel string,
 ) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	account = selectAccountAPIKeyForRequest(c, account)
 	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
 	if dynamicErr != nil {
 		return nil, dynamicErr

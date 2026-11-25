@@ -20,6 +20,7 @@ import (
 
 // Forward forwards request to OpenAI API
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	account = selectAccountAPIKeyForRequest(c, account)
 	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
 	if dynamicErr != nil {
 		return nil, dynamicErr

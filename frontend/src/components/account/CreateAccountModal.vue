@@ -1551,12 +1551,9 @@
           :plan="currentOpenCodeOrCNMode()"
         />
         <div>
-          <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
-          <input
+          <APIKeyPoolInput
             v-model="apiKeyValue"
-            type="password"
             required
-            class="input font-mono"
             :placeholder="apiKeyValuePlaceholder"
           />
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
@@ -3866,6 +3863,8 @@ import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import { applyExplicitCacheUpstreamCredentials, isOfficialGeminiBaseUrl } from '@/utils/geminiExplicitCache'
 import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
+import APIKeyPoolInput from '@/components/account/APIKeyPoolInput.vue'
+import { applyAPIKeyInput, parseAPIKeyInput } from '@/components/account/apiKeyPool'
 import { allSelectedGroupsEnableLongContextPricing } from '@/components/account/longContextBilling'
 import {
   applyAntigravityProjectID,
@@ -4299,7 +4298,8 @@ function onCnPresetSelect(preset: { mode: CnAccountMode; protocol: CnApiProtocol
 }
 
 const syncPreviewCredentials = computed(() => {
-  if (!apiKeyValue.value) return undefined
+  const previewKey = parseAPIKeyInput(apiKeyValue.value)[0]
+  if (!previewKey) return undefined
   const baseUrl = isMultiProtocolPlatform.value && apiProtocol.value === 'adaptive'
     ? adaptiveBaseUrls.value.chat_completions.trim() || apiKeyBaseUrl.value.trim()
     : apiKeyBaseUrl.value.trim()
@@ -4312,7 +4312,7 @@ const syncPreviewCredentials = computed(() => {
     platform: form.platform,
     type: form.type,
     base_url: baseUrl || undefined,
-    api_key: apiKeyValue.value,
+    api_key: previewKey,
     ...(modelMapping ? { model_mapping: modelMapping } : {})
   }
 })
@@ -5812,7 +5812,7 @@ const handleSubmit = async () => {
   }
 
   // For apikey type, create directly
-  if (!apiKeyValue.value.trim()) {
+  if (parseAPIKeyInput(apiKeyValue.value).length === 0) {
     appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
     return
   }
@@ -5831,9 +5831,9 @@ const handleSubmit = async () => {
 
   // Build credentials with optional model mapping
   const credentials: Record<string, unknown> = {
-    base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl,
-    api_key: apiKeyValue.value.trim()
+    base_url: apiKeyBaseUrl.value.trim() || defaultBaseUrl
   }
+  applyAPIKeyInput(credentials, apiKeyValue.value)
   if (form.platform === 'gemini' && isOfficialGeminiBaseUrl(apiKeyBaseUrl.value)) {
     credentials.tier_id = geminiTierAIStudio.value
   }

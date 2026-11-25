@@ -227,6 +227,10 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 	if req.Platform == PlatformTypeSafe && req.Type != AccountTypeAPIKey {
 		return nil, errors.New("typesafe accounts only support apikey credentials")
 	}
+	credentials, err := NormalizeAccountAPIKeyCredentials(req.Type, nil, req.Credentials)
+	if err != nil {
+		return nil, err
+	}
 	// 验证分组是否存在（如果指定了分组）
 	if len(req.GroupIDs) > 0 {
 		if err := s.validateGroupIDsExist(ctx, req.GroupIDs); err != nil {
@@ -240,7 +244,7 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Notes:       normalizeAccountNotes(req.Notes),
 		Platform:    req.Platform,
 		Type:        req.Type,
-		Credentials: SanitizeStoredCredentials(req.Platform, req.Credentials),
+		Credentials: SanitizeStoredCredentials(req.Platform, credentials),
 		Extra:       prepareCodexFingerprintExtraForCreate(req.Platform, req.Type, req.Extra),
 		ProxyID:     req.ProxyID,
 		Concurrency: req.Concurrency,
@@ -333,7 +337,11 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	}
 
 	if req.Credentials != nil {
-		account.Credentials = SanitizeStoredCredentials(account.Platform, *req.Credentials)
+		credentials, err := NormalizeAccountAPIKeyCredentials(account.Type, account.Credentials, *req.Credentials)
+		if err != nil {
+			return nil, err
+		}
+		account.Credentials = SanitizeStoredCredentials(account.Platform, credentials)
 	}
 
 	if req.Extra != nil {

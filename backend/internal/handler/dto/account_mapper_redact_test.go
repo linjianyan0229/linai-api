@@ -38,10 +38,11 @@ func TestAccountFromServiceShallow_RedactsSensitiveCredentials(t *testing.T) {
 	require.Equal(t, map[string]any{"foo": "bar"}, got.Credentials["model_mapping"])
 
 	// 状态 map 标记敏感键存在
-	require.True(t, got.CredentialsStatus["has_access_token"])
-	require.True(t, got.CredentialsStatus["has_refresh_token"])
-	require.True(t, got.CredentialsStatus["has_id_token"])
-	require.True(t, got.CredentialsStatus["has_api_key"])
+	require.Equal(t, true, got.CredentialsStatus["has_access_token"])
+	require.Equal(t, true, got.CredentialsStatus["has_refresh_token"])
+	require.Equal(t, true, got.CredentialsStatus["has_id_token"])
+	require.Equal(t, true, got.CredentialsStatus["has_api_key"])
+	require.Equal(t, 1, got.CredentialsStatus["api_key_count"])
 
 	// JSON 序列化校验：响应体里不会出现敏感子串
 	raw, err := json.Marshal(got)
@@ -99,6 +100,22 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.NotNil(t, got)
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
+}
+
+func TestAccountFromService_APIKeyPoolDoesNotLeakIntoDetailOrList(t *testing.T) {
+	src := &service.Account{ID: 44, Type: service.AccountTypeAPIKey, Credentials: map[string]any{
+		"api_key": "pool-secret-one", "api_keys": []string{"pool-secret-one", "pool-secret-two"},
+		"api_keys_mode": "append",
+	}}
+	account := AccountFromServiceShallow(src)
+	require.Equal(t, 2, account.CredentialsStatus["api_key_count"])
+	for _, result := range []any{account, AccountListItemFromAccount(account)} {
+		payload, err := json.Marshal(result)
+		require.NoError(t, err)
+		require.NotContains(t, string(payload), "pool-secret")
+		require.NotContains(t, string(payload), "api_keys_mode")
+		require.Contains(t, string(payload), `"api_key_count":2`)
+	}
 }
 
 func TestAccountFromService_RedactsGrokModelDiagnostics(t *testing.T) {

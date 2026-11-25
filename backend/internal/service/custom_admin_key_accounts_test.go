@@ -51,6 +51,56 @@ func TestScopedAdminAccountModelMappingFieldPermissions(t *testing.T) {
 	require.ElementsMatch(t, []string{"accounts.models.write", "accounts.credentials", "accounts.network"}, permissions)
 }
 
+func TestScopedAdminAccountAPIKeyPoolRequiresCredentialPermission(t *testing.T) {
+	for _, body := range []string{
+		`{"credentials":{"api_keys":["first","second"]}}`,
+		`{"credentials":{"api_keys_mode":"append"}}`,
+	} {
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(body), &fields))
+		permissions, err := scopedAccountFieldPermissions(fields, false)
+		require.NoError(t, err)
+		require.Equal(t, []string{"accounts.credentials"}, permissions)
+	}
+	for _, body := range []string{
+		`{"credentials":{"api_keys":"secret"}}`,
+		`{"credentials":{"api_keys":["first",2]}}`,
+		`{"credentials":{"api_keys_mode":"random"}}`,
+	} {
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(body), &fields))
+		_, err := scopedAccountFieldPermissions(fields, false)
+		require.Error(t, err)
+	}
+}
+
+func TestMergeScopedAccountCredentialsHonorsKeyPatchBeforePreservingConfig(t *testing.T) {
+	account := &Account{Type: AccountTypeAPIKey, Credentials: map[string]any{
+		"api_key": "first", "api_keys": []string{"first", "second"}, "base_url": "https://example.com",
+	}}
+	for _, tt := range []struct {
+		name string
+		patch map[string]any
+		want []string
+	}{
+		{"single replaces inherited pool", map[string]any{"api_key": "new"}, []string{"new"}},
+		{"append", map[string]any{"api_keys": []string{"second", "new"}, "api_keys_mode": "append"}, []string{"first", "second", "new"}},
+		{"replace", map[string]any{"api_keys": []string{"new"}}, []string{"new"}},
+		{"models only", map[string]any{"model_mapping": map[string]any{}}, []string{"first", "second"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			merged, err := mergeScopedAccountCredentials(account, tt.patch)
+			require.NoError(t, err)
+			persisted, err := NormalizeAccountAPIKeyCredentials(account.Type, account.Credentials, merged)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, AccountAPIKeys(persisted))
+			require.Equal(t, "https://example.com", persisted["base_url"])
+			require.NotContains(t, persisted, "api_keys_mode")
+		})
+	}
+	require.Equal(t, []string{"first", "second"}, account.Credentials["api_keys"])
+}
+
 func TestScopedAdminWriteModelMappingEnforcesScopeAndPreservesCredentials(t *testing.T) {
 	login, db := scopedAdminAccountTestDB(t)
 	_, err := db.Exec(`CREATE TABLE account_groups(account_id BIGINT,group_id BIGINT);

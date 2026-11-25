@@ -43,13 +43,13 @@ func TestRedactCredentials_StripsSensitiveKeysAndReportsStatus(t *testing.T) {
 	require.Equal(t, "proj-1", out["project_id"])
 	require.Equal(t, int64(123456), out["expires_at"])
 
-	require.True(t, status["has_refresh_token"])
-	require.True(t, status["has_access_token"])
-	require.True(t, status["has_api_key"])
-	require.True(t, status["has_aws_secret_access_key"])
-	require.True(t, status["has_service_account_json"])
-	require.True(t, status["has_private_key"])
-	require.True(t, status["has_agent_private_key"])
+	require.Equal(t, true, status["has_refresh_token"])
+	require.Equal(t, true, status["has_access_token"])
+	require.Equal(t, true, status["has_api_key"])
+	require.Equal(t, true, status["has_aws_secret_access_key"])
+	require.Equal(t, true, status["has_service_account_json"])
+	require.Equal(t, true, status["has_private_key"])
+	require.Equal(t, true, status["has_agent_private_key"])
 
 	// 状态 map 不应携带非敏感键的 has_*
 	require.NotContains(t, status, "has_base_url")
@@ -65,10 +65,10 @@ func TestRedactCredentials_EmptyValuesNotMarkedPresent(t *testing.T) {
 	}
 	out, status := RedactCredentials(in)
 	require.Empty(t, out, "敏感键即使为空也不应出现在 redacted output")
-	require.False(t, status["has_refresh_token"])
-	require.False(t, status["has_access_token"])
-	require.False(t, status["has_api_key"])
-	require.True(t, status["has_id_token"])
+	require.NotEqual(t, true, status["has_refresh_token"])
+	require.NotEqual(t, true, status["has_access_token"])
+	require.Equal(t, false, status["has_api_key"])
+	require.Equal(t, true, status["has_id_token"])
 }
 
 func TestRedactCredentials_DoesNotMutateInput(t *testing.T) {
@@ -96,6 +96,25 @@ func TestRedactCredentials_AllKnownSensitiveKeys(t *testing.T) {
 	out, status := RedactCredentials(in)
 	require.Empty(t, out)
 	for _, k := range keys {
-		require.True(t, status["has_"+k], "key %s 应在 status 中标记为已配置", k)
+		require.Equal(t, true, status["has_"+k], "key %s 应在 status 中标记为已配置", k)
 	}
+}
+
+func TestRedactCredentials_APIKeyPoolIsHiddenAndCounted(t *testing.T) {
+	in := map[string]any{
+		"api_keys":      []any{" key-a ", "key-b", "key-a", ""},
+		"api_keys_mode": "append",
+		"base_url":      "https://upstream.example",
+	}
+	out, status := RedactCredentials(in)
+	require.Equal(t, map[string]any{"base_url": "https://upstream.example"}, out)
+	require.Equal(t, true, status["has_api_key"])
+	require.Equal(t, 2, status["api_key_count"])
+	require.Contains(t, in, "api_keys")
+}
+
+func TestRedactCredentials_EmptyPoolDoesNotCountLegacyKey(t *testing.T) {
+	_, status := RedactCredentials(map[string]any{"api_keys": []string{}, "api_key": "stale"})
+	require.Equal(t, false, status["has_api_key"])
+	require.Equal(t, 0, status["api_key_count"])
 }

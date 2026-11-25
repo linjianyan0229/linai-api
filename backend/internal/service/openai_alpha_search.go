@@ -27,6 +27,7 @@ const (
 // *OpenAIForwardResult（WebSearchCalls=1，供按次计费）；上游错误被原样透传
 // 给客户端时返回 (nil, nil)，不产生计费。
 func (s *OpenAIGatewayService) ForwardAlphaSearch(ctx context.Context, c *gin.Context, account *Account, body []byte) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	account = selectAccountAPIKeyForRequest(c, account)
 	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
 	if dynamicErr != nil {
 		return nil, dynamicErr

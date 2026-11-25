@@ -1712,6 +1712,26 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('api_key')
   })
 
+  it.each(['append', 'replace'] as const)('edits a redacted key pool with explicit %s semantics', async mode => {
+    const account = buildAccount()
+    account.credentials = { base_url: 'https://api.openai.com' }
+    account.credentials_status = { has_api_key: true, api_key_count: 2 }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    const wrapper = mountModal(account)
+
+    expect(wrapper.find('[data-testid="api-key-pool-stored-count"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="api-key-pool-single"]').setValue('key-three')
+    await wrapper.get('[data-testid="api-key-pool-write-mode"]').setValue(mode)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
+      api_keys: ['key-three'], api_keys_mode: mode
+    })
+    wrapper.unmount()
+  })
+
   it('allows saving apikey account against legacy backend without credentials_status', async () => {
     // 新前端 + 旧后端：credentials_status 缺失，但 credentials.api_key 仍是明文，应允许保存
     const account = buildAccount()

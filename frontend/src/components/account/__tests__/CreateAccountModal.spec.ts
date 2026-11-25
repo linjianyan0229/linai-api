@@ -219,6 +219,28 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
   afterEach(() => vi.useRealTimers())
 
+  it('creates one account with a deduplicated key pool and previews models with its first key', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('multi-key provider')
+    await selectButtonByText(wrapper, 'admin.accounts.apiKeyPool.bulkInput')
+    await wrapper.get('[data-testid="api-key-pool-textarea"]').setValue(' key-one\r\nkey-two\nkey-one\n')
+
+    const preview = wrapper.findAllComponents(ModelWhitelistSelectorStub)
+      .map(component => component.props('syncCredentials'))
+      .find(credentials => credentials?.api_key)
+    expect(preview?.api_key).toBe('key-one')
+
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
+      api_key: 'key-one', api_keys: ['key-one', 'key-two']
+    })
+    wrapper.unmount()
+  })
+
   it('can create a passthrough account with model filtering enabled', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'OpenAI')

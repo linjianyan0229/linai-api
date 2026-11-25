@@ -12,6 +12,8 @@ FRONTEND_CRITICAL_VITEST := \
 	src/components/account/__tests__/OpenAIQuotaResetCell.spark_shadow.spec.ts \
 	src/constants/__tests__/platforms.spec.ts \
 	src/components/account/__tests__/credentialsBuilder.platformCatalog.spec.ts \
+	src/components/account/__tests__/apiKeyPool.spec.ts \
+	src/components/account/__tests__/APIKeyPoolInput.spec.ts \
 	src/components/account/__tests__/CreateAccountModal.spec.ts \
 	src/components/account/__tests__/EditAccountModal.spec.ts \
 	src/components/account/__tests__/credentialsBuilder.spec.ts \

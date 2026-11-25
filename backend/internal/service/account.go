@@ -86,6 +86,10 @@ type Account struct {
 	headerOverrideCacheRawPtr         uintptr
 	headerOverrideCacheRawLen         int
 	headerOverrideCacheRawSig         uint64
+
+	// apiKeySelected marks a request-owned copy whose upstream key is already
+	// pinned. It is never persisted or written back to scheduler snapshots.
+	apiKeySelected bool
 }
 
 type OpenAIEndpointCapability string

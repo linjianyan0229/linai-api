@@ -654,6 +654,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	body []byte,
 	contentType string,
 ) (*OpenAIForwardResult, error) {
+	account = selectAccountAPIKeyForRequest(c, account)
 	startTime := time.Now()
 	if account == nil {
 		return nil, fmt.Errorf("grok account is required")

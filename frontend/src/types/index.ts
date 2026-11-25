@@ -1311,7 +1311,7 @@ export interface Account {
   // service_account_json / service_account / private_key 不会出现，
   // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
-  credentials_status?: Record<string, boolean>
+  credentials_status?: Partial<Record<`has_${string}`, boolean>> & { api_key_count?: number }
   ollama_cloud_usage?: OllamaCloudUsageState
   opencode_go_usage?: OpenCodeGoUsageState
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.

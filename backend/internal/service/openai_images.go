@@ -687,6 +687,7 @@ func (s *OpenAIGatewayService) ForwardImages(
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
 ) (forwardResult *OpenAIForwardResult, forwardErr error) {
+	account = selectAccountAPIKeyForRequest(c, account)
 	dynamicQuote, dynamicErr := prepareForwardDynamicPricing(ctx, c, account)
 	if dynamicErr != nil {
 		return nil, dynamicErr
