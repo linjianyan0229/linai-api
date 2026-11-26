@@ -815,6 +815,8 @@ func TestBuildCodexModelsManifestForGroupUsesDeepSeekVisionCapabilities(t *testi
 		}
 		return account
 	}
+	customCommandCode := newAccount(1, PlatformCommandCode, "deepseek-v4.1-flash", nil)
+	customCommandCode.Credentials["api_base_urls"] = map[string]any{APIProtocolResponses: "https://example.test/v1"}
 
 	tests := []struct {
 		name       string
@@ -855,6 +857,36 @@ func TestBuildCodexModelsManifestForGroupUsesDeepSeekVisionCapabilities(t *testi
 			},
 			modalities: []any{"text"},
 		},
+		{
+			name: "Command Code DeepSeek Flash", platform: PlatformCommandCode,
+			accounts:   []Account{newAccount(1, PlatformCommandCode, "deepseek-v4.1-flash", nil)},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name: "Composite Command Code DeepSeek alias", platform: PlatformComposite,
+			accounts:   []Account{newAccount(1, PlatformCommandCode, "deepseek/deepseek-v4.1-flash", nil)},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name: "custom Command Code endpoint", platform: PlatformCommandCode,
+			accounts:   []Account{customCommandCode},
+			modalities: []any{"text"},
+		},
+		{
+			name: "Command Code synced text-only metadata", platform: PlatformCommandCode,
+			accounts:   []Account{newAccount(1, PlatformCommandCode, "deepseek-v4.1-flash", []string{"text"})},
+			modalities: []any{"text"},
+		},
+		{
+			name: "unknown Command Code model", platform: PlatformCommandCode,
+			accounts:   []Account{newAccount(1, PlatformCommandCode, "unknown-model", nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name: "Command Code explicit vision metadata", platform: PlatformCommandCode,
+			accounts:   []Account{newAccount(1, PlatformCommandCode, "unknown-model", []string{"text", "image"})},
+			modalities: []any{"text", "image"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -866,6 +898,127 @@ func TestBuildCodexModelsManifestForGroupUsesDeepSeekVisionCapabilities(t *testi
 			}}}
 			body, err := svc.BuildCodexModelsManifestForGroup(context.Background(),
 				&Group{ID: groupID, Platform: tt.platform}, "", []string{"vision-alias"})
+			require.NoError(t, err)
+			models := decodeCodexManifestModels(t, body)
+			require.Len(t, models, 1)
+			require.Equal(t, tt.modalities, models[0]["input_modalities"])
+		})
+	}
+}
+
+func TestBuildCodexModelsManifestForGroupUsesDeclaredImageInputModels(t *testing.T) {
+	t.Parallel()
+
+	const model = "deepseek-v4.1-flash"
+	newAccount := func(id int64, declared []any, syncedModalities []string) Account {
+		account := Account{
+			ID: id, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+			Credentials: map[string]any{
+				"base_url":      "http://vllm.internal:8000",
+				"model_mapping": map[string]any{model: model},
+			},
+		}
+		if declared != nil {
+			account.Extra = map[string]any{ImageInputModelsExtraKey: declared}
+		}
+		if syncedModalities != nil {
+			account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
+				model: {ID: model, InputModalities: syncedModalities},
+			}})
+		}
+		return account
+	}
+	newCommandCodeAccount := func(id int64, declared []any) Account {
+		account := newAccount(id, declared, nil)
+		account.Platform = PlatformCommandCode
+		account.Credentials["api_base_urls"] = map[string]any{APIProtocolResponses: "https://example.test/v1"}
+		return account
+	}
+
+	tests := []struct {
+		name       string
+		platform   string
+		accounts   []Account
+		modalities []any
+	}{
+		{
+			name:       "undeclared self-hosted model",
+			accounts:   []Account{newAccount(1, nil, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "declared self-hosted model",
+			accounts:   []Account{newAccount(1, []any{model}, nil)},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name:       "declaration ignores case",
+			accounts:   []Account{newAccount(1, []any{"DeepSeek-V4.1-Flash"}, nil)},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name:       "declaration overrides synced text-only metadata",
+			accounts:   []Account{newAccount(1, []any{model}, []string{"text"})},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name:       "another model declared",
+			accounts:   []Account{newAccount(1, []any{"qwen3-vl"}, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "empty declaration keeps text only",
+			accounts:   []Account{newAccount(1, []any{}, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "invalid declaration entries keep text only",
+			accounts:   []Account{newAccount(1, []any{nil, true, 42, "  "}, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "whitespace and invalid entries do not hide valid declaration",
+			accounts:   []Account{newAccount(1, []any{nil, 42, "  DeepSeek-V4.1-Flash  "}, nil)},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name:       "an undeclared account in the pool keeps text only",
+			accounts:   []Account{newAccount(1, []any{model}, nil), newAccount(2, nil, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "custom Command Code endpoint accepts explicit declaration",
+			platform:   PlatformCommandCode,
+			accounts:   []Account{newCommandCodeAccount(1, []any{model})},
+			modalities: []any{"text", "image"},
+		},
+		{
+			name:       "custom Command Code endpoint without declaration keeps text only",
+			platform:   PlatformCommandCode,
+			accounts:   []Account{newCommandCodeAccount(1, nil)},
+			modalities: []any{"text"},
+		},
+		{
+			name:       "mixed Command Code pool keeps text only",
+			platform:   PlatformCommandCode,
+			accounts:   []Account{newCommandCodeAccount(1, []any{model}), newCommandCodeAccount(2, nil)},
+			modalities: []any{"text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			const groupID int64 = 791
+			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
+				groupID: tt.accounts,
+			}}}
+			platform := tt.platform
+			if platform == "" {
+				platform = PlatformOpenAI
+			}
+			body, err := svc.BuildCodexModelsManifestForGroup(context.Background(),
+				&Group{ID: groupID, Platform: platform}, "", []string{model})
 			require.NoError(t, err)
 			models := decodeCodexManifestModels(t, body)
 			require.Len(t, models, 1)
@@ -1129,6 +1282,7 @@ func TestBuildCodexModelsManifestForGroupLoadsAccountsOnce(t *testing.T) {
 	require.Contains(t, repo.platforms, PlatformDeepseek)
 	require.Contains(t, repo.platforms, PlatformMiniMax)
 	require.Contains(t, repo.platforms, PlatformOpenCodeGo)
+	require.Contains(t, repo.platforms, PlatformCommandCode)
 	require.NotContains(t, repo.platforms, PlatformComposite)
 }
 
@@ -2224,6 +2378,126 @@ func TestCompleteAPIKeyCodexModelsManifestForClientUsesSyncedMetadataForConverte
 	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
 	require.EqualValues(t, 999_000, models[0]["context_window"])
 	require.EqualValues(t, 999_000, models[0]["max_context_window"])
+}
+
+func TestCompleteAPIKeyCodexModelsManifestForClientUsesDeclaredImageInputModels(t *testing.T) {
+	t.Parallel()
+
+	const model = "self-hosted-vision-model"
+	const mappedModel = "vendor/vision-model"
+	const standardBody = `{"object":"list","data":[{"id":"self-hosted-vision-model","object":"model"}]}`
+	const nativeBody = `{"models":[{"slug":"self-hosted-vision-model","description":"Provider supplied"}]}`
+	const nativeTextBody = `{"models":[{"slug":"self-hosted-vision-model","description":"Provider supplied","input_modalities":["text"]}]}`
+
+	tests := []struct {
+		name             string
+		upstreamBody     string
+		declared         []any
+		mapped           bool
+		syncedModalities []string
+		modalities       []any
+	}{
+		{
+			name:             "standard list declaration overrides synced text metadata",
+			upstreamBody:     standardBody,
+			declared:         []any{model},
+			syncedModalities: []string{"text"},
+			modalities:       []any{"text", "image"},
+		},
+		{
+			name:         "standard list declaration works without synced metadata",
+			upstreamBody: standardBody,
+			declared:     []any{model},
+			modalities:   []any{"text", "image"},
+		},
+		{
+			name:             "native manifest declaration overrides synced text metadata",
+			upstreamBody:     nativeBody,
+			declared:         []any{model},
+			syncedModalities: []string{"text"},
+			modalities:       []any{"text", "image"},
+		},
+		{
+			name:         "native manifest declaration overrides provider text metadata",
+			upstreamBody: nativeTextBody,
+			declared:     []any{model},
+			modalities:   []any{"text", "image"},
+		},
+		{
+			name:             "standard list uses mapped upstream declaration",
+			upstreamBody:     standardBody,
+			declared:         []any{"  Vendor/Vision-Model  "},
+			mapped:           true,
+			syncedModalities: []string{"text"},
+			modalities:       []any{"text", "image"},
+		},
+		{
+			name:         "native manifest uses mapped upstream declaration",
+			upstreamBody: nativeBody,
+			declared:     []any{mappedModel},
+			mapped:       true,
+			modalities:   []any{"text", "image"},
+		},
+		{
+			name:             "undeclared standard list keeps synced text metadata",
+			upstreamBody:     standardBody,
+			syncedModalities: []string{"text"},
+			modalities:       []any{"text"},
+		},
+		{
+			name:             "undeclared native manifest preserves explicit text metadata",
+			upstreamBody:     nativeTextBody,
+			syncedModalities: []string{"text", "image"},
+			modalities:       []any{"text"},
+		},
+		{
+			name:         "unrelated declaration keeps text only",
+			upstreamBody: standardBody,
+			declared:     []any{"another-vision-model"},
+			modalities:   []any{"text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			account := newCodexModelsAPIKeyTestAccount("https://upstream.example/v1")
+			if tt.declared != nil {
+				account.Extra = map[string]any{ImageInputModelsExtraKey: tt.declared}
+			}
+			upstreamModel := model
+			if tt.mapped {
+				account.Credentials["model_mapping"] = map[string]any{model: mappedModel}
+				upstreamModel = mappedModel
+			}
+			if tt.syncedModalities != nil {
+				account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
+					upstreamModel: {ID: upstreamModel, InputModalities: tt.syncedModalities},
+				}})
+			}
+			upstream := &codexModelsHTTPUpstreamStub{do: func(_ *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(tt.upstreamBody)),
+				}, nil
+			}}
+			svc := newCodexModelsAPIKeyTestService(upstream)
+
+			manifest, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
+			require.NoError(t, err)
+			require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(manifest, account))
+
+			models := decodeCodexManifestModels(t, manifest.Body)
+			require.Len(t, models, 1)
+			require.Equal(t, model, models[0]["slug"])
+			require.Equal(t, tt.modalities, models[0]["input_modalities"])
+			require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
+			if tt.upstreamBody != standardBody {
+				require.Equal(t, "Provider supplied", models[0]["description"])
+			}
+		})
+	}
 }
 
 func TestCompleteAPIKeyCodexModelsManifestForClientFillsMissingProviderFieldsWithoutOverwritingExplicitMetadata(t *testing.T) {

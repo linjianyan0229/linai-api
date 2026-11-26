@@ -258,6 +258,7 @@ func loadCodexGroupCatalogAccounts(ctx context.Context, repo AccountRepository, 
 			PlatformDeepseek,
 			PlatformMiniMax,
 			PlatformOpenCodeGo,
+			PlatformCommandCode,
 		},
 		false,
 	)
@@ -1169,7 +1170,9 @@ func groupCodexModelSupportsImageInput(
 			return false
 		}
 	}
-	if platform != PlatformOpenAI && platform != PlatformGrok && platform != PlatformDeepseek && platform != PlatformOpenCodeGo {
+	switch platform {
+	case PlatformOpenAI, PlatformGrok, PlatformDeepseek, PlatformOpenCodeGo, PlatformCommandCode:
+	default:
 		return false
 	}
 
@@ -1303,12 +1306,38 @@ func codexExplicitModelMappingClaims(account Account, modelID string) bool {
 	return mapped != ""
 }
 
+// ImageInputModelsExtraKey is an optional account extra key, set through the
+// admin account API, that lists upstream model IDs accepting image input.
+// It covers models that neither the upstream model list nor models.dev
+// describes, such as multimodal models served by vLLM or SGLang. Declared
+// models advertise image input ahead of synced metadata and name fallbacks.
+const ImageInputModelsExtraKey = "image_input_models"
+
+// accountDeclaresImageInputModel reports whether the account lists
+// upstreamModel under ImageInputModelsExtraKey, ignoring case.
+func accountDeclaresImageInputModel(account *Account, upstreamModel string) bool {
+	model := strings.TrimSpace(upstreamModel)
+	if account == nil || account.Extra == nil || model == "" {
+		return false
+	}
+	declared, _ := account.Extra[ImageInputModelsExtraKey].([]any)
+	for _, value := range declared {
+		if name, ok := value.(string); ok && strings.EqualFold(strings.TrimSpace(name), model) {
+			return true
+		}
+	}
+	return false
+}
+
 func accountCodexModelSupportsImageInput(account *Account, upstreamModel string) bool {
 	if account == nil {
 		return false
 	}
 	switch account.Platform {
-	case PlatformOpenAI, PlatformDeepseek, PlatformOpenCodeGo:
+	case PlatformOpenAI, PlatformDeepseek, PlatformOpenCodeGo, PlatformCommandCode:
+		if accountDeclaresImageInputModel(account, upstreamModel) {
+			return true
+		}
 		if metadata, ok := account.GetUpstreamModelMetadata(upstreamModel); ok {
 			if modalities := normalizeCodexInputModalities(metadata.InputModalities); len(modalities) > 0 {
 				// Official GPT-6 Astra metadata briefly shipped with a stale
@@ -1320,6 +1349,12 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 				}
 				return stringSliceContains(modalities, "image")
 			}
+		}
+		if account.IsCommandCode() {
+			model := strings.TrimPrefix(strings.TrimSpace(upstreamModel), "deepseek/")
+			return model == "deepseek-v4.1-flash" &&
+				strings.TrimRight(account.GetOpenAIBaseURL(), "/") == DefaultCommandCodeBaseURL &&
+				strings.TrimRight(account.GetCNProtocolBaseURL(APIProtocolResponses), "/") == DefaultCommandCodeBaseURL
 		}
 		if strings.EqualFold(strings.TrimSpace(upstreamModel), "deepseek-v4-flash-vision-exp") {
 			return account.Type == AccountTypeAPIKey
@@ -2236,7 +2271,7 @@ func convertOpenAIModelListToCodexManifestForAccount(body []byte, account *Accou
 	}
 	imageInputModels := make(map[string]bool, len(modelIDs))
 	for _, modelID := range modelIDs {
-		if accountCodexModelSupportsImageInput(account, modelID) {
+		if accountCodexModelSupportsImageInput(account, metadataModels[modelID]) {
 			imageInputModels[modelID] = true
 		}
 	}
@@ -2447,15 +2482,20 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 			continue
 		}
 
+		capabilityModel := slug
+		if account != nil {
+			capabilityModel = account.GetMappedModel(slug)
+		}
 		completeDescriptor := completeAll || isDeepSeekCodexModel(slug)
 		forceOfficialImage := officialOpenAI && isOpenAICodexImageInputModel(slug)
-		if !completeDescriptor && !forceOfficialImage {
+		forceDeclaredImage := accountDeclaresImageInputModel(account, capabilityModel)
+		if !completeDescriptor && !forceOfficialImage && !forceDeclaredImage {
 			continue
 		}
 
 		descriptor := newConfiguredCodexModelDescriptor(slug)
 		descriptor.SupportsSearchTool = shouldForwardOpenAIResponsesViaRawChatCompletions(account)
-		if accountCodexModelSupportsImageInput(account, slug) {
+		if accountCodexModelSupportsImageInput(account, capabilityModel) {
 			descriptor.InputModalities = []string{"text", "image"}
 		}
 		if forceOfficialImage {
@@ -2471,10 +2511,6 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 			return nil, fmt.Errorf("decode default model %q: %w", slug, err)
 		}
 
-		capabilityModel := slug
-		if account != nil {
-			capabilityModel = account.GetMappedModel(slug)
-		}
 		capabilities := accountCodexToolCapabilities(account, capabilityModel)
 		modelChanged := applyCodexToolCapabilities(model, capabilities, false)
 		if completeDescriptor {
@@ -2484,7 +2520,9 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 			}
 			modelChanged = merged || modelChanged
 		}
-		if forceOfficialImage {
+		// An explicit account declaration must survive both synced metadata and
+		// native manifests that advertise only text input.
+		if forceOfficialImage || forceDeclaredImage {
 			modalities, err := json.Marshal([]string{"text", "image"})
 			if err != nil {
 				return nil, fmt.Errorf("encode input modalities for model %q: %w", slug, err)
@@ -2493,6 +2531,8 @@ func completeAPIKeyCodexModelsManifestMetadata(body []byte, completeAll bool, ac
 				model["input_modalities"] = modalities
 				modelChanged = true
 			}
+		}
+		if forceOfficialImage {
 			imageDetailOriginal := json.RawMessage("true")
 			if !bytes.Equal(bytes.TrimSpace(model["supports_image_detail_original"]), imageDetailOriginal) {
 				model["supports_image_detail_original"] = imageDetailOriginal
