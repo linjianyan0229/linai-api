@@ -152,6 +152,29 @@ export async function deleteKey(id: number): Promise<{ message: string }> {
   return data
 }
 
+export interface BulkDeleteApiKeysResult {
+  succeededIds: number[]
+  failures: Array<{ id: number; error: unknown }>
+}
+
+/** Reuse per-key deletion permissions, with at most five requests in flight. */
+export async function bulkDelete(ids: number[]): Promise<BulkDeleteApiKeysResult> {
+  const uniqueIds = [...new Set(ids)]
+  const result: BulkDeleteApiKeysResult = { succeededIds: [], failures: [] }
+  for (let offset = 0; offset < uniqueIds.length; offset += 5) {
+    const batch = uniqueIds.slice(offset, offset + 5)
+    const responses = await Promise.allSettled(batch.map((id) => deleteKey(id)))
+    responses.forEach((response, index) => {
+      if (response.status === 'fulfilled') {
+        result.succeededIds.push(batch[index])
+      } else {
+        result.failures.push({ id: batch[index], error: response.reason })
+      }
+    })
+  }
+  return result
+}
+
 /**
  * Toggle API key status (active/inactive)
  * @param id - API key ID
@@ -168,6 +191,7 @@ export const keysAPI = {
   create,
   update,
   bulkUpdate,
+  bulkDelete,
   delete: deleteKey,
   toggleStatus
 }

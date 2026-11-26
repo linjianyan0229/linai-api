@@ -40,6 +40,14 @@
             >
               {{ t('keys.bulkEdit.title') }}
             </button>
+            <button
+              class="btn btn-danger btn-sm"
+              :disabled="loading"
+              data-test="bulk-delete-keys"
+              @click="showBulkDeleteModal = true"
+            >
+              {{ t('keys.bulkDelete.title') }}
+            </button>
             <button class="btn btn-secondary btn-sm" @click="selectedIds = []">
               {{ t('keys.bulkEdit.clearSelection') }}
             </button>
@@ -1019,6 +1027,13 @@
       @updated="handleBulkUpdated"
     />
 
+    <BulkDeleteKeysModal
+      :show="showBulkDeleteModal"
+      :selected-keys="selectedApiKeys"
+      @close="showBulkDeleteModal = false"
+      @deleted="handleBulkDeleted"
+    />
+
     <!-- Delete Confirmation Dialog -->
     <ConfirmDialog
       :show="showDeleteDialog"
@@ -1202,6 +1217,7 @@ import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
+import BulkDeleteKeysModal from '@/components/keys/BulkDeleteKeysModal.vue'
 	import DataTable from '@/components/common/DataTable.vue'
 	import Pagination from '@/components/common/Pagination.vue'
 	import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -1354,6 +1370,7 @@ const columns = computed<Column[]>(() =>
 const apiKeys = ref<ApiKey[]>([])
 const selectedIds = ref<number[]>([])
 const showBulkEditModal = ref(false)
+const showBulkDeleteModal = ref(false)
 const selectedApiKeys = computed(() => apiKeys.value.filter((key) => selectedIds.value.includes(key.id)))
 
 const handleSelectionChange = (ids: Array<string | number>) => {
@@ -1364,6 +1381,16 @@ const handleSelectionChange = (ids: Array<string | number>) => {
 const handleBulkUpdated = (succeededIds: number[]) => {
   const succeeded = new Set(succeededIds)
   selectedIds.value = selectedIds.value.filter((id) => !succeeded.has(id))
+  loadApiKeys()
+}
+
+const handleBulkDeleted = (succeededIds: number[]) => {
+  const succeeded = new Set(succeededIds)
+  selectedIds.value = selectedIds.value.filter((id) => !succeeded.has(id))
+  apiKeys.value = apiKeys.value.filter((key) => !succeeded.has(key.id))
+  pagination.value.total = Math.max(0, pagination.value.total - succeeded.size)
+  pagination.value.pages = Math.ceil(pagination.value.total / pagination.value.page_size)
+  pagination.value.page = Math.min(pagination.value.page, Math.max(1, pagination.value.pages))
   loadApiKeys()
 }
 

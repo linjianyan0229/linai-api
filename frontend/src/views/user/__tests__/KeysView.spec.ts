@@ -236,6 +236,7 @@ const mountView = async () => {
         Icon: IconStub,
         UseKeyModal: true,
         BulkEditKeysModal: true,
+        BulkDeleteKeysModal: true,
         EndpointPopover: true,
         GroupBadge: true,
         GroupOptionItem: true,
@@ -269,6 +270,7 @@ describe('user KeysView column settings', () => {
     listKeys.mockReset()
     updateKey.mockReset()
     vi.mocked(keysAPI.create).mockReset()
+    vi.mocked(keysAPI.delete).mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
@@ -357,6 +359,80 @@ describe('user KeysView column settings', () => {
     const modal = wrapper.findComponent({ name: 'BulkEditKeysModal' })
     expect(modal.props('show')).toBe(true)
     expect(modal.props('selectedKeys').map((key: ApiKey) => key.id)).toEqual([1])
+    wrapper.unmount()
+  })
+
+  it('opens bulk deletion with only the selected visible keys', async () => {
+    const wrapper = await mountView()
+    expect(wrapper.find('[data-test="bulk-delete-keys"]').exists()).toBe(false)
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    table.vm.$emit('update:selectedKeys', [1, 99, 1])
+    await nextTick()
+    await wrapper.get('[data-test="bulk-delete-keys"]').trigger('click')
+    const modal = wrapper.findComponent({ name: 'BulkDeleteKeysModal' })
+    expect(modal.props('show')).toBe(true)
+    expect(modal.props('selectedKeys').map((key: ApiKey) => key.id)).toEqual([1])
+    modal.vm.$emit('close')
+    await nextTick()
+    expect(modal.props('show')).toBe(false)
+    expect(table.props('selectedKeys')).toEqual([1])
+    expect(keysAPI.delete).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('refreshes after bulk deletion and preserves only failed keys in the selection', async () => {
+    const keys = [createApiKey(), { ...createApiKey(), id: 2, name: 'Second' }]
+    listKeys.mockResolvedValueOnce({ items: keys, total: 2, pages: 1 })
+      .mockResolvedValueOnce({ items: [keys[1]], total: 1, pages: 1 })
+    const wrapper = await mountView()
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    table.vm.$emit('update:selectedKeys', [1, 2])
+    await nextTick()
+    await wrapper.get('[data-test="bulk-delete-keys"]').trigger('click')
+    const modal = wrapper.findComponent({ name: 'BulkDeleteKeysModal' })
+    modal.vm.$emit('deleted', [1])
+    await flushPromises()
+    expect(listKeys).toHaveBeenCalledTimes(2)
+    expect(table.props('selectedKeys')).toEqual([2])
+    expect(table.props('data').map((key: ApiKey) => key.id)).toEqual([2])
+    expect(modal.props('show')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('clears the bulk action toolbar when all selected keys have been deleted', async () => {
+    const wrapper = await mountView()
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    table.vm.$emit('update:selectedKeys', [1])
+    await nextTick()
+    await wrapper.get('[data-test="bulk-delete-keys"]').trigger('click')
+    listKeys.mockResolvedValueOnce({ items: [], total: 0, pages: 0 })
+    const modal = wrapper.findComponent({ name: 'BulkDeleteKeysModal' })
+    modal.vm.$emit('deleted', [1])
+    modal.vm.$emit('close')
+    await flushPromises()
+    expect(table.props('selectedKeys')).toEqual([])
+    expect(wrapper.find('[data-test="bulk-delete-keys"]').exists()).toBe(false)
+    expect(modal.props('show')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('returns to the preceding page when bulk deletion empties the last page', async () => {
+    const lastKey = { ...createApiKey(), id: 21, name: 'Last page key' }
+    listKeys.mockResolvedValueOnce({ items: [createApiKey()], total: 21, pages: 2 })
+      .mockResolvedValueOnce({ items: [lastKey], total: 21, pages: 2 })
+      .mockResolvedValueOnce({ items: [createApiKey()], total: 20, pages: 1 })
+    const wrapper = await mountView()
+    await wrapper.get('[data-test="page-2"]').trigger('click')
+    await flushPromises()
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    table.vm.$emit('update:selectedKeys', [21])
+    await nextTick()
+    await wrapper.get('[data-test="bulk-delete-keys"]').trigger('click')
+    wrapper.findComponent({ name: 'BulkDeleteKeysModal' }).vm.$emit('deleted', [21])
+    await flushPromises()
+    expect(listKeys).toHaveBeenLastCalledWith(1, 20, expect.any(Object), expect.any(Object))
+    expect(wrapper.findComponent({ name: 'Pagination' }).props('page')).toBe(1)
+    expect(table.props('selectedKeys')).toEqual([])
     wrapper.unmount()
   })
 
