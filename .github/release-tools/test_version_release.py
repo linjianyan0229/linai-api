@@ -20,6 +20,8 @@ class VersionReleaseTest(unittest.TestCase):
         self.addCleanup(os.chdir, previous)
         Path('backend/cmd/server').mkdir(parents=True)
         Path('backend/cmd/server/VERSION').write_text('0.3.54\n')
+        Path('.github/release-notes').mkdir(parents=True)
+        Path('.github/release-notes/v0.3.54.md').write_text('## 更新日志\n\n- 新增测试功能。\n', encoding='utf-8')
         self.environment = patch.dict(os.environ, {'GITHUB_OUTPUT': 'output', 'GITHUB_REPOSITORY': 'ExampleOwner/linai-api', 'DRY_RUN': 'false'})
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -31,11 +33,35 @@ class VersionReleaseTest(unittest.TestCase):
         self.assertEqual(Path('output').read_text(), 'ref=' + 'a' * 40 + '\n')
 
     def test_explicit_version_creates_one_immutable_tag(self):
-        with patch.object(subprocess, 'check_output', side_effect=['a' * 40 + '\n', 'v0.3.53\n', '- add optional release updates (abcdef)']), patch.object(subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 1), subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0)]) as run:
+        with patch.object(subprocess, 'check_output', side_effect=['a' * 40 + '\n', 'v0.3.53\n']), patch.object(subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 1), subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0)]) as run:
             version_release.main()
-        self.assertIn('add optional release updates', run.call_args_list[-2].args[0][-1])
+        self.assertIn('## 更新日志\n\n- 新增测试功能。', run.call_args_list[-2].args[0][-1])
         self.assertEqual(run.call_args_list[-1].args[0], ['git', 'push', 'origin', 'refs/tags/v0.3.54'])
         self.assertEqual(Path('output').read_text(), 'ref=v0.3.54\n')
+
+    def test_new_release_requires_nonempty_versioned_notes(self):
+        notes_file = Path('.github/release-notes/v0.3.54.md')
+        notes_file.unlink()
+        with patch.object(subprocess, 'check_output', side_effect=['a' * 40 + '\n', 'v0.3.53\n']), patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as run:
+            with self.assertRaisesRegex(ValueError, 'missing release notes'):
+                version_release.main()
+        self.assertEqual(run.call_count, 1)
+
+    def test_new_release_notes_must_use_standard_heading(self):
+        for notes in ('English commit list', '## 更新日志 草稿标题\n正文'):
+            with self.subTest(notes=notes):
+                Path('.github/release-notes/v0.3.54.md').write_text(notes, encoding='utf-8')
+                with patch.object(subprocess, 'check_output', side_effect=['a' * 40 + '\n', 'v0.3.53\n']), patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as run:
+                    with self.assertRaisesRegex(ValueError, 'must start with'):
+                        version_release.main()
+                self.assertEqual(run.call_count, 1)
+
+    def test_new_release_notes_must_have_content_after_heading(self):
+        Path('.github/release-notes/v0.3.54.md').write_text('## 更新日志\n', encoding='utf-8')
+        with patch.object(subprocess, 'check_output', side_effect=['a' * 40 + '\n', 'v0.3.53\n']), patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as run:
+            with self.assertRaisesRegex(ValueError, 'no content'):
+                version_release.main()
+        self.assertEqual(run.call_count, 1)
 
     def test_existing_tag_is_never_moved_to_another_commit(self):
         with patch.object(subprocess, 'check_output', return_value='a' * 40 + '\n'), patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, stdout='b' * 40 + '\n')) as run:

@@ -35,15 +35,17 @@ def main():
                     continue
                 if old >= version(current):
                     raise ValueError('VERSION must be newer than every published stable release')
-            candidates = []
-            for previous in published.splitlines():
-                try:
-                    candidates.append((version(previous.removeprefix('v')), previous))
-                except ValueError:
-                    continue
-            history = f'{max(candidates)[1]}..HEAD' if candidates else 'HEAD'
-            notes = subprocess.check_output(['git', 'log', '--no-merges', '--max-count=30', '--format=- %s (%h)', history], text=True).strip()
-            message = f'LinAI API {tag}\n\n## 更新内容\n{notes}'
+            notes_file = Path('.github/release-notes') / f'{tag}.md'
+            if not notes_file.is_file():
+                raise ValueError(f'missing release notes: {notes_file.as_posix()}')
+            notes = notes_file.read_text(encoding='utf-8').strip()
+            if not notes:
+                raise ValueError(f'release notes are empty: {notes_file.as_posix()}')
+            if notes.splitlines()[0] != '## 更新日志':
+                raise ValueError(f'release notes must start with "## 更新日志": {notes_file.as_posix()}')
+            if not '\n'.join(notes.splitlines()[1:]).strip():
+                raise ValueError(f'release notes have no content: {notes_file.as_posix()}')
+            message = f'LinAI API {tag}\n\n{notes}'
             subprocess.run(['git', '-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com', 'tag', '-a', tag, '-m', message], check=True)
             subprocess.run(['git', 'push', 'origin', f'refs/tags/{tag}'], check=True)
         ref = tag

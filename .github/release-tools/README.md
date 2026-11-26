@@ -8,6 +8,14 @@ Go caches are isolated by target and refreshed on each source commit, with fallb
 
 All build jobs use the commit resolved by `prepare`, including a manual release's selected tag. Helper scripts come from the workflow revision and are passed as a run-local artifact, so older application tags do not need to contain the new scripts. The workflow serializes release runs to prevent simultaneous updates to moving image tags.
 
+## GitHub Release 更新日志规范
+
+每次稳定版发布都必须在 `.github/release-notes/vX.Y.Z.md` 新增对应版本的更新日志。该文件是 GitHub Release 更新内容的唯一来源，英文提交标题列表不能代替面向用户的说明。版本发布脚本会读取文件内容写入 tag；文件缺失、为空、标题不符合规范或没有实际说明时，会阻止发布。
+
+正文使用中文，并以 `## 更新日志` 开头。先用一两句话概括用户可见的主要变化，再按需列出新增、优化、修复或兼容性变化；只保留相关栏目，说明重要操作方式，不罗列内部实现或未经确认的内容。验证结果只写实际通过的项目，有帮助时附上完整变更比较链接。
+
+发布后检查 GitHub Release 实际正文与版本日志一致，并确认安装说明和发布附件仍然存在。需要修正时，在完成发布任务前更新正文并再次核对。
+
 ## Validate without publication
 
 From a branch containing this workflow:

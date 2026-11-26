@@ -270,6 +270,16 @@ jobs:
         id: tag_message
         run: |
           TAG_MESSAGE=$(git tag -l --format='%(contents:body)' "$RELEASE_TAG")
+          if [[ "$DRY_RUN" != true ]]; then
+            if [[ "${TAG_MESSAGE%%$'\n'*}" != '## 更新日志' ]]; then
+              echo '::error::Release tag notes must start with the standard Chinese heading: ## 更新日志'
+              exit 1
+            fi
+            if [[ -z "$(printf '%s' "$TAG_MESSAGE" | tail -n +2 | tr -d '[:space:]')" ]]; then
+              echo '::error::Release tag notes must include user-facing change details.'
+              exit 1
+            fi
+          fi
           DELIMITER="TAG_MESSAGE_$(openssl rand -hex 16)"
           {
             echo "message<<$DELIMITER"
